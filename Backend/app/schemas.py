@@ -1,5 +1,5 @@
 # backend/app/schemas.py
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 import re
 
@@ -15,7 +15,7 @@ class AlertRequest(BaseModel):
     pothole_id: str = Field(..., min_length=1, max_length=50)
     message: Optional[str] = Field(None, max_length=2000)
 
-    @validator("pothole_id")
+    @field_validator("pothole_id")
     def validate_pothole_id(cls, v):
         # Only letters, numbers, hyphens allowed — blocks SQL injection
         if not re.match(r"^[a-zA-Z0-9\-]+$", v):
