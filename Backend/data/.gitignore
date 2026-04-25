@@ -1,2 +1,1 @@
-# Generated — run `python -m kevin.cortex.embed` to recreate
-*.csv
+# CSVs are committed so teammates can use the data without running the pipeline
