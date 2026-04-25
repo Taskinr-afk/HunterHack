@@ -1,57 +1,92 @@
 # Backend Development Progress Log
 
-This file tracks the current step and progress for backend/API work in the kevin/ folder.
-
-## How to Use This File
-- **Current Step:** Only one step should be listed here at a time. Update this section as you begin each new step.
-- **Completed Steps:** Add each finished step here, in order, with a brief summary if needed.
-- **Format:**
-  - Phase X: [Phase Name]
-  - Step X.X: [Step Description] ([file(s)] if relevant)
-  - Example:
-    - Phase 1: Schemas & Main App
-    - Step 1.1: Create Pydantic schemas (kevin/api/schemas.py)
+This file tracks the current step and progress for backend/API work in the Backend/ folder.
 
 ---
 
-
-
-
-
-
-
 ## Current Step
 
-- Phase 6: Frontend Integration & Deployment Prep
-- Step 6.3: Wire API to frontend — confirm GeoJSON contract with Taskin, test `/potholes/geojson` response shape matches what Leaflet/Mapbox expects
+- Phase 8: Complete ✓ — all phases done, backend ready for frontend wiring
 
-
-
-
-
-
+---
 
 ## Completed Steps
 
 - Phase 0: Python Environment Setup
-  - Python 3.13.7 and pip installed
-  - Virtual environment created in kevin/
-  - Dependencies installed from kevin/api/requirements.txt and kevin/cortex/requirements.txt
+  - Python 3.13.7, pip, dependencies installed
 - Phase 1: Schemas & Main App
-  - Step 1.1: Pydantic schemas created and reviewed (kevin/api/schemas.py)
-  - Step 1.2: Main FastAPI app created and reviewed (kevin/api/main.py)
+  - Step 1.1: Pydantic schemas (Backend/app/schemas.py)
+  - Step 1.2: FastAPI app entry point (Backend/app/main.py)
 - Phase 2: Endpoint Implementation
-  - Step 2.1: API/database logic reviewed and confirmed (kevin/api/database.py)
+  - Step 2.1: SQLite database layer (Backend/app/database.py)
 - Phase 3: ML Model Logic
-  - Step 3.1: ML model loading and prediction logic reviewed and confirmed (kevin/cortex/model.py)
+  - Step 3.1: XGBoost model loading + prediction (Backend/cortex/model.py)
 - Phase 4: Alerts Endpoint
-  - Step 4.1: Alerts endpoint implemented and registered (kevin/api/alerts.py, kevin/api/main.py)
+  - Step 4.1: Alerts router registered (Backend/app/alerts.py, main.py)
 - Phase 5: End-to-End Integration Testing
-  - Step 5.1: All endpoints and model predictions tested and verified (API, DB, ML)
+  - Step 5.1: All endpoints and model predictions verified
 - Phase 6: Frontend Integration & Deployment Prep
-  - Step 6.1: Cleaned Copilot stubs from main.py, CORS wired to CORS_ORIGINS env var, .env.example and Dockerfile created (kevin/api/main.py, kevin/.env.example, kevin/Dockerfile)
-  - Step 6.2: Data export + embedding pipeline added (kevin/cortex/embed.py → kevin/data/potholes_raw.csv + potholes_embeddings.csv, 3,936 rows, 384-dim MiniLM embeddings)
+  - Step 6.1: CORS env config, .env.example, Dockerfile, clean stubs (Backend/app/main.py)
+  - Step 6.2: Data export + 384-dim embedding pipeline (Backend/cortex/embed.py → Backend/data/)
+  - Step 6.3: GeoJSON contract verified — FeatureCollection with [lng,lat] coords, risk_score,
+              urgency_label, prob_* fields. Shape confirmed valid for Leaflet/Mapbox.
+- Phase 7: Real Alert Service
+  - Step 7.1: SMTP email + SQLite alert persistence (Backend/app/alerts.py)
+    - POST /alerts/send  — manual alert for a pothole, stored in alerts table
+    - POST /alerts/scan  — auto-scan open potholes above ALERT_RISK_THRESHOLD (default 75),
+                           sends alert for any not yet alerted
+    - GET  /alerts/history — returns alert history from SQLite
+    - alerts table added to database.py with FK to potholes
+    - SMTP configured via env vars (logs to console when not set)
+- Phase 8: Full Integration Test
+  - Step 8.1: All endpoints tested end-to-end
+    - GET  /              → {"status": "PotholeIQ API is running"}
+    - GET  /stats         → 3,936 potholes, 792 open, breakdown by borough
+    - GET  /potholes/geojson → valid GeoJSON FeatureCollection with risk scores
+    - POST /alerts/scan   → 3 potholes alerted, stored in DB
+    - GET  /alerts/history → history returned from SQLite
 
 ---
 
-Update this file as you move through each backend development phase. Only the current step should be in the "Current Step" section; move it to "Completed Steps" when done.
+## GeoJSON Contract for Frontend (Taskin)
+
+```
+GET /potholes/geojson?status=Open&min_risk=0&limit=5000
+
+Response:
+{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": { "type": "Point", "coordinates": [longitude, latitude] },
+    "properties": {
+      "unique_key": "68538157",
+      "status": "Open",
+      "descriptor": "Pothole",
+      "borough": "MANHATTAN",
+      "street_name": "HARLEM RIVER DRIVE",
+      "age_days": 23.1,
+      "risk_score": 51.8,          ← 0–100
+      "urgency_label": "Medium",   ← Low / Medium / High / Critical
+      "urgency_tier": 1,           ← 0 / 1 / 2 / 3
+      "fix_days_estimate": 14,
+      "nearby_crashes": 10,
+      "pavement_crash_nearby": 1,
+      "prob_low": 0.0,
+      "prob_medium": 0.585,
+      "prob_high": 0.414,
+      "prob_critical": 0.0,
+      "created_date": "2026-04-02 15:04:57",
+      "closed_date": null
+    }
+  }],
+  "meta": { "count": 5000 }
+}
+
+Query params:
+  status    Open | Closed
+  borough   MANHATTAN | BROOKLYN | QUEENS | BRONX | STATEN ISLAND
+  min_risk  float 0–100
+  urgency   Low | Medium | High | Critical
+  limit     max 10000
+```

@@ -52,6 +52,22 @@ CREATE TABLE IF NOT EXISTS potholes (
 CREATE INDEX IF NOT EXISTS idx_borough     ON potholes(borough);
 CREATE INDEX IF NOT EXISTS idx_status      ON potholes(status);
 CREATE INDEX IF NOT EXISTS idx_urgency     ON potholes(urgency_tier);
+
+CREATE TABLE IF NOT EXISTS alerts (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    pothole_id  TEXT NOT NULL,
+    urgency     TEXT,
+    risk_score  REAL,
+    borough     TEXT,
+    street_name TEXT,
+    message     TEXT,
+    sent_at     TEXT DEFAULT (datetime('now')),
+    delivered   INTEGER DEFAULT 0,
+    FOREIGN KEY (pothole_id) REFERENCES potholes(unique_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_pothole ON alerts(pothole_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_sent    ON alerts(sent_at);
 CREATE INDEX IF NOT EXISTS idx_risk        ON potholes(risk_score);
 CREATE INDEX IF NOT EXISTS idx_location    ON potholes(latitude, longitude);
 """
@@ -172,3 +188,36 @@ def get_stats() -> dict:
 
     summary["by_borough"] = by_borough
     return summary
+
+
+def insert_alert(pothole_id: str, urgency: str, risk_score: float,
+                 borough: str, street_name: str, message: str,
+                 delivered: bool = False) -> int:
+    sql = """INSERT INTO alerts
+             (pothole_id, urgency, risk_score, borough, street_name, message, delivered)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"""
+    with get_conn() as conn:
+        cur = conn.execute(sql, (pothole_id, urgency, risk_score,
+                                 borough, street_name, message, int(delivered)))
+        return cur.lastrowid
+
+
+def get_alert_history(limit: int = 100) -> list[dict]:
+    sql = "SELECT * FROM alerts ORDER BY sent_at DESC LIMIT ?"
+    with get_conn() as conn:
+        rows = conn.execute(sql, (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def get_high_risk_unalerted(min_risk: float = 75.0, limit: int = 50) -> list[dict]:
+    """Return open potholes above min_risk that have not yet had an alert sent."""
+    sql = """
+        SELECT p.* FROM potholes p
+        LEFT JOIN alerts a ON p.unique_key = a.pothole_id
+        WHERE p.risk_score >= ? AND p.status = 'Open' AND a.id IS NULL
+        ORDER BY p.risk_score DESC
+        LIMIT ?
+    """
+    with get_conn() as conn:
+        rows = conn.execute(sql, (min_risk, limit)).fetchall()
+    return [dict(r) for r in rows]
