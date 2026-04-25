@@ -1,0 +1,11 @@
+*.pyc
+__pycache__/
+*.db
+*.sqlite3
+*.pkl
+*.joblib
+.env
+.env.local
+venv/
+.venv/
+*.egg-info/
