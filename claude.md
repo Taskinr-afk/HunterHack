@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Before writing any line of code, re-read this file.** Understand the architecture, locate the relevant files, and confirm the change fits the existing patterns before touching anything.
+
 ## Project
 
 **PotholeIQ** — HunterHack 2026 hackathon project. NYC pothole risk intelligence map: real-time pothole tracking from NYC Open Data, ML-powered risk scoring, and automated alerts to the NYC DOT.
@@ -115,8 +117,9 @@ POST /admin/refresh            re-fetch + re-score + reload DB
 
 ---
 
-## Workflow rules (from existing claude.md)
+## Workflow rules
 
+- **Read CLAUDE.md first.** Before writing any line of code, re-read this file.
 - Enter plan mode for any task with 3+ steps or architectural decisions.
 - Never mark a task complete without proving it works.
 - For non-trivial changes: ask "is there a more elegant way?" before implementing.
