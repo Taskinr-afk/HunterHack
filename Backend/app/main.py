@@ -31,6 +31,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 
 from .alerts import router as alerts_router
+from .api.potholes import router as potholes_router
+from .api.stats import router as stats_router
+from .api.predictions import router as predictions_router
+from .api.alerts_api import router as alerts_api_router
 from .database import init_db, upsert_potholes, query_potholes, get_stats
 from .schemas import (
     GeoJSONFeatureCollection,
@@ -95,7 +99,11 @@ if os.getenv("ENVIRONMENT") == "production":
     app.add_middleware(HTTPSRedirectMiddleware)
 
 # ── Routers ────────────────────────────────────────────────────────────────────
-app.include_router(alerts_router)
+app.include_router(alerts_router)       # /alerts/*
+app.include_router(potholes_router)     # /api/potholes
+app.include_router(stats_router)        # /api/stats/*
+app.include_router(predictions_router)  # /api/predictions/*
+app.include_router(alerts_api_router)   # /api/alerts/*
 
 
 @app.on_event("startup")

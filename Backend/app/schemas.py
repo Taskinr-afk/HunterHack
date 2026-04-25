@@ -132,3 +132,55 @@ class StatsResponse(BaseModel):
     low:            int
     avg_risk_score: float
     by_borough:     list[BoroughStats]
+
+
+# ── Dev B plan schemas ─────────────────────────────────────────────────────────
+
+class PotholeResponse(BaseModel):
+    id:           str
+    latitude:     float
+    longitude:    float
+    borough:      Optional[str]  = None
+    zip_code:     Optional[str]  = None
+    descriptor:   Optional[str]  = None
+    status:       str
+    created_date: str
+    closed_date:  Optional[str]  = None
+    days_open:    int
+    impact_score: Optional[float] = None
+
+
+class PotholeDetailResponse(PotholeResponse):
+    nearby_collision_count:    int            = 0
+    traffic_volume:            Optional[int]  = None
+    accident_risk:             str            = "LOW"
+    accident_risk_probability: float          = 0.0
+    predicted_repair_days:     Optional[int]  = None
+
+
+class StatsBoroughEntry(BaseModel):
+    open_count:       int
+    closed_count:     int
+    avg_days_open:    float
+    total_collisions: int
+
+
+class StatsSummary(BaseModel):
+    total_open:    int
+    total_closed:  int
+    avg_days_open: float
+    by_borough:    dict[str, StatsBoroughEntry]
+
+
+class TimelinePoint(BaseModel):
+    week:   str
+    opened: int
+    closed: int
+
+
+class AlertResponse(BaseModel):
+    id:         int
+    pothole_id: str
+    sent_date:  str
+    status:     str
+    message:    str
