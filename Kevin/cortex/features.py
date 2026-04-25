@@ -1,9 +1,5 @@
 """
 Feature engineering and label generation for pothole risk scoring.
-
-Labels are derived from domain logic (age × traffic × severity × crashes) since
-NYC Open Data doesn't include accident causation ground truth.
-XGBoost learns to approximate this from raw observable features.
 """
 
 import numpy as np
@@ -15,11 +11,12 @@ FEATURE_COLS = [
     "latitude",
     "longitude",
     "borough_code",
-    "traffic_volume",       # real vehicle counts from Automated Traffic dataset
+    "traffic_volume",        # street-level daily vehicle counts (automated ATR)
+    "aadt",                  # annual average daily traffic (NY State DOT)
     "is_highway",
     "descriptor_severity",
     "month_opened",
-    "nearby_crashes",       # collision count within 200 m (NYPD crash data)
+    "nearby_crashes",        # collision count within 200 m
     "pavement_crash_nearby", # 1 if pavement-specific crash within 500 m
 ]
 
@@ -31,7 +28,6 @@ BOROUGH_TRAFFIC = {
     "STATEN ISLAND": 1,
 }
 
-# Borough-level volume fallback (avg daily vehicles, rough estimate)
 BOROUGH_VOL_FALLBACK = {
     "MANHATTAN":    8_000,
     "BROOKLYN":     5_500,
@@ -41,22 +37,22 @@ BOROUGH_VOL_FALLBACK = {
 }
 
 DESCRIPTOR_SEVERITY = {
-    "pothole - highway":           1.0,
-    "pothole-highway":             1.0,
-    "cave-in":                     0.95,
-    "cave in":                     0.95,
-    "highway pothole":             1.0,
-    "pothole":                     0.70,
+    "pothole - highway":            1.0,
+    "pothole-highway":              1.0,
+    "cave-in":                      0.95,
+    "cave in":                      0.95,
+    "highway pothole":              1.0,
+    "pothole":                      0.70,
     "pothole - residential street": 0.55,
-    "pothole - street":            0.60,
-    "pothole - tunnel":            0.85,
+    "pothole - street":             0.60,
+    "pothole - tunnel":             0.85,
 }
 
 URGENCY_LABELS   = ["Low", "Medium", "High", "Critical"]
 FIX_DAYS_BY_TIER = {0: 30, 1: 14, 2: 7, 3: 3}
 
-# 95th-percentile daily volume cap for normalisation (calibrated from traffic dataset)
 _TRAFFIC_VOL_P95 = 15_000.0
+_AADT_P95        = 80_000.0
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -72,7 +68,6 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df["age_days"] = (now - created).dt.total_seconds() / 86400
     df["age_days"] = df["age_days"].clip(lower=0).fillna(30)
 
-    # borough encoding
     df["borough_code"] = (
         df["borough"]
         .map({b: i for i, b in enumerate(BOROUGH_TRAFFIC)})
@@ -80,31 +75,32 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
         .astype(int)
     )
 
-    # traffic_volume: use real data if present, else borough fallback
+    # traffic_volume fallback
     if "traffic_volume" not in df.columns:
         df["traffic_volume"] = df["borough"].map(BOROUGH_VOL_FALLBACK).fillna(3_000)
     else:
-        fallback = df["borough"].map(BOROUGH_VOL_FALLBACK).fillna(3_000)
-        df["traffic_volume"] = df["traffic_volume"].fillna(fallback)
+        df["traffic_volume"] = df["traffic_volume"].fillna(
+            df["borough"].map(BOROUGH_VOL_FALLBACK).fillna(3_000)
+        )
 
-    # highway flag
+    # aadt fallback (use traffic_volume * 365 proxy if AADT missing)
+    if "aadt" not in df.columns:
+        df["aadt"] = df["traffic_volume"] * 365
+    else:
+        df["aadt"] = df["aadt"].fillna(df["traffic_volume"] * 365)
+
     df["is_highway"] = (
         df["location_type"].str.lower()
         .str.contains("highway|expressway|bridge|tunnel", na=False)
         .astype(int)
     )
 
-    # descriptor severity
     df["descriptor_severity"] = (
-        df["descriptor"].str.lower()
-        .map(DESCRIPTOR_SEVERITY)
-        .fillna(0.5)
+        df["descriptor"].str.lower().map(DESCRIPTOR_SEVERITY).fillna(0.5)
     )
 
-    # seasonality
     df["month_opened"] = df["created_date"].dt.month.fillna(1).astype(int)
 
-    # collision features — default 0 when enriched data isn't available
     for col in ("nearby_crashes", "pavement_crash_nearby"):
         if col not in df.columns:
             df[col] = 0
@@ -115,25 +111,26 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_risk_labels(df: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
     """
-    Generate risk_score (0–100) and urgency_tier (0–3) labels for training.
+    Generate risk_score (0–100) and urgency_tier (0–3) labels.
 
-    Formula weights:
-      age          40 pts  (180-day saturation)
-      traffic      25 pts  (real vehicle counts, 95th-pct normalised)
-      severity     15 pts  (descriptor type)
-      highway       8 pts  (bonus)
-      crashes      12 pts  (nearby crash count, 10-crash saturation)
+    Weights:
+      age                40 pts  (180-day saturation)
+      traffic (ATR)      15 pts  (street-level daily count)
+      AADT               10 pts  (annual avg daily traffic, DOT)
+      descriptor          15 pts
+      highway bonus        8 pts
+      nearby crashes      12 pts  (10-crash saturation)
     """
     rng = np.random.default_rng(seed)
 
-    age_score      = np.minimum(df["age_days"] / 180, 1.0) * 40
-    traffic_norm   = np.minimum(df["traffic_volume"] / _TRAFFIC_VOL_P95, 1.0)
-    traffic_score  = traffic_norm * 25
-    severity_score = df["descriptor_severity"] * 15
-    highway_bonus  = df["is_highway"] * 8
-    crash_score    = np.minimum(df["nearby_crashes"] / 10, 1.0) * 12
+    age_score     = np.minimum(df["age_days"] / 180, 1.0) * 40
+    traffic_score = np.minimum(df["traffic_volume"] / _TRAFFIC_VOL_P95, 1.0) * 15
+    aadt_score    = np.minimum(df["aadt"] / _AADT_P95, 1.0) * 10
+    sev_score     = df["descriptor_severity"] * 15
+    hw_bonus      = df["is_highway"] * 8
+    crash_score   = np.minimum(df["nearby_crashes"] / 10, 1.0) * 12
 
-    raw   = age_score + traffic_score + severity_score + highway_bonus + crash_score
+    raw   = age_score + traffic_score + aadt_score + sev_score + hw_bonus + crash_score
     noise = rng.normal(0, 2.5, size=len(df))
 
     df = df.copy()

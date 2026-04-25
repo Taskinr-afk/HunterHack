@@ -1,15 +1,18 @@
 """
-NYC Open Data pipeline for PotholeIQ.
+NYC Open Data pipeline for PotholeIQ — Kevin's ML module.
 
-Datasets used:
-  311 Service Requests   erm2-nwe9  pothole reports, age, status, lat/lon
-  Automated Traffic      7ym2-wayt  real vehicle counts per street segment
-  Motor Vehicle Crashes  h9gi-nx95  collision counts + pavement-specific crashes
+Datasets:
+  311 Service Requests   erm2-nwe9      pothole reports (last 2 years)
+  Automated Traffic      7ym2-wayt      real vehicle counts per street segment
+  Motor Vehicle Crashes  h9gi-nx95      collision proximity features
+  NY State AADT          6amx-2pbv      annual avg daily traffic by road segment
 """
 
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone, timedelta
+
 import numpy as np
 import pandas as pd
 import requests
@@ -18,22 +21,32 @@ from sklearn.neighbors import BallTree
 
 MODEL_DIR = Path(__file__).parent / "models"
 
-# ── API endpoints ──────────────────────────────────────────────────────────────
-NYC_311_URL      = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
-TRAFFIC_URL      = "https://data.cityofnewyork.us/resource/7ym2-wayt.json"
-COLLISION_URL    = "https://data.cityofnewyork.us/resource/h9gi-nx95.json"
+# ── Endpoints ──────────────────────────────────────────────────────────────────
+NYC_311_URL   = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
+TRAFFIC_URL   = "https://data.cityofnewyork.us/resource/7ym2-wayt.json"
+COLLISION_URL = "https://data.cityofnewyork.us/resource/h9gi-nx95.json"
+AADT_URL      = "https://data.ny.gov/resource/6amx-2pbv.json"
 
 # ── Cache paths ────────────────────────────────────────────────────────────────
 POTHOLE_CACHE   = MODEL_DIR / "pothole_cache.parquet"
 TRAFFIC_CACHE   = MODEL_DIR / "traffic_cache.parquet"
 COLLISION_CACHE = MODEL_DIR / "collision_cache.parquet"
+AADT_CACHE      = MODEL_DIR / "aadt_cache.parquet"
 ENRICHED_CACHE  = MODEL_DIR / "enriched_cache.parquet"
 
-# ── Collision search radii ─────────────────────────────────────────────────────
-CRASH_RADIUS_M          = 200   # any crash within 200 m → nearby_crashes count
-PAVEMENT_CRASH_RADIUS_M = 500   # pavement-specific crash within 500 m → flag
+# ── Collision radii ────────────────────────────────────────────────────────────
+CRASH_RADIUS_M          = 200
+PAVEMENT_CRASH_RADIUS_M = 500
+PAVEMENT_FACTORS        = {"Pavement Slippery", "Pavement Defective"}
 
-PAVEMENT_FACTORS = {"Pavement Slippery", "Pavement Defective"}
+# NYC county → borough name mapping for AADT data
+AADT_COUNTY_TO_BOROUGH = {
+    "Bronx":    "BRONX",
+    "Kings":    "BROOKLYN",
+    "New York": "MANHATTAN",
+    "Queens":   "QUEENS",
+    "Richmond": "STATEN ISLAND",
+}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -42,23 +55,28 @@ PAVEMENT_FACTORS = {"Pavement Slippery", "Pavement Defective"}
 
 def fetch_all(pothole_limit: int = 10_000, use_cache: bool = True) -> pd.DataFrame:
     """
-    Return enriched DataFrame with columns from all three datasets.
-    Added columns: traffic_volume, nearby_crashes, pavement_crash_nearby.
+    Return enriched DataFrame joining all four NYC datasets.
+    Filters 311 data to last 2 years to keep training fast.
+    Added columns: traffic_volume, aadt, nearby_crashes, pavement_crash_nearby.
     """
     if use_cache and ENRICHED_CACHE.exists():
         return pd.read_parquet(ENRICHED_CACHE)
 
-    print("  Fetching 311 pothole reports …")
+    print("  [data] Fetching 311 pothole reports (last 2 years) …")
     potholes = _fetch_potholes(pothole_limit)
 
-    print("  Fetching traffic volume counts …")
+    print("  [data] Fetching automated traffic volume counts …")
     traffic = _fetch_traffic()
 
-    print("  Fetching motor vehicle collisions …")
+    print("  [data] Fetching NY State AADT by road segment …")
+    aadt = _fetch_aadt()
+
+    print("  [data] Fetching motor vehicle collisions …")
     collisions = _fetch_collisions()
 
-    print("  Joining datasets …")
+    print("  [data] Joining datasets …")
     df = _join_traffic(potholes, traffic)
+    df = _join_aadt(df, aadt)
     df = _join_collisions(df, collisions)
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
@@ -67,47 +85,47 @@ def fetch_all(pothole_limit: int = 10_000, use_cache: bool = True) -> pd.DataFra
 
 
 def fetch_potholes(limit: int = 10_000, use_cache: bool = True) -> pd.DataFrame:
-    """Backwards-compatible single-dataset fetch (used by train.py)."""
     if use_cache and POTHOLE_CACHE.exists():
         return pd.read_parquet(POTHOLE_CACHE)
     return _fetch_potholes(limit)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Dataset fetchers
+# Fetchers
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _fetch_potholes(limit: int = 10_000) -> pd.DataFrame:
+    two_years_ago = (datetime.now(timezone.utc) - timedelta(days=730)).strftime(
+        "%Y-%m-%dT00:00:00"
+    )
     params = {
-        "$limit": limit,
+        "$limit":  limit,
         "$select": (
             "unique_key,created_date,closed_date,status,"
             "complaint_type,descriptor,borough,street_name,"
             "latitude,longitude,location_type"
         ),
-        "$where": "upper(descriptor) LIKE '%POTHOLE%'",
-        "$order": "created_date DESC",
+        "$where":  (
+            f"upper(descriptor) LIKE '%POTHOLE%' "
+            f"AND created_date >= '{two_years_ago}'"
+        ),
+        "$order":  "created_date DESC",
     }
     df = _get(NYC_311_URL, params)
     df = _clean_potholes(df)
-
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     df.to_parquet(POTHOLE_CACHE, index=False)
     return df
 
 
 def _fetch_traffic(limit: int = 100_000) -> pd.DataFrame:
-    """
-    Fetch automated traffic counts and aggregate to avg daily volume
-    per (street_key, boro_key) for street-name joining.
-    """
     if TRAFFIC_CACHE.exists():
         return pd.read_parquet(TRAFFIC_CACHE)
 
     params = {
-        "$limit": limit,
+        "$limit":  limit,
         "$select": "segmentid,street,boro,vol,yr,m,d",
-        "$order": "yr DESC",
+        "$order":  "yr DESC",
     }
     raw = _get(TRAFFIC_URL, params)
     if raw.empty:
@@ -119,17 +137,13 @@ def _fetch_traffic(limit: int = 100_000) -> pd.DataFrame:
         raw["m"].astype(str).str.zfill(2) + "-" +
         raw["d"].astype(str).str.zfill(2)
     )
-
-    # daily totals per segment, then average across all days observed
     daily = (
         raw.groupby(["segmentid", "street", "boro", "date"])["vol"]
-        .sum()
-        .reset_index()
+        .sum().reset_index()
     )
     seg_avg = (
         daily.groupby(["segmentid", "street", "boro"])["vol"]
-        .mean()
-        .reset_index()
+        .mean().reset_index()
         .rename(columns={"vol": "daily_avg_vol"})
     )
     seg_avg["street_key"] = seg_avg["street"].apply(_norm_street)
@@ -140,22 +154,60 @@ def _fetch_traffic(limit: int = 100_000) -> pd.DataFrame:
     return seg_avg
 
 
+def _fetch_aadt(limit: int = 50_000) -> pd.DataFrame:
+    """
+    NY State Annual Average Daily Traffic (AADT) filtered to NYC counties.
+    Dataset: data.ny.gov/resource/6amx-2pbv.json
+    """
+    if AADT_CACHE.exists():
+        return pd.read_parquet(AADT_CACHE)
+
+    nyc_counties = "('Bronx','Kings','New York','Queens','Richmond')"
+    params = {
+        "$limit":  limit,
+        "$select": "station_id,county,municipality,road_name,aadt_year,count",
+        "$where":  f"county IN {nyc_counties}",
+        "$order":  "aadt_year DESC",
+    }
+    raw = _get(AADT_URL, params)
+    if raw.empty:
+        return raw
+
+    raw["count"] = pd.to_numeric(raw["count"], errors="coerce").fillna(0)
+    raw["aadt_year"] = pd.to_numeric(raw["aadt_year"], errors="coerce")
+
+    # Keep only the most recent year per station
+    raw = raw.sort_values("aadt_year", ascending=False)
+    raw = raw.drop_duplicates(subset=["station_id"])
+
+    raw["borough"]    = raw["county"].map(AADT_COUNTY_TO_BOROUGH).fillna("UNKNOWN")
+    raw["street_key"] = raw["road_name"].apply(_norm_street)
+    raw["boro_key"]   = raw["borough"].str.upper().str.strip()
+
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    raw.to_parquet(AADT_CACHE, index=False)
+    return raw
+
+
 def _fetch_collisions(limit: int = 50_000) -> pd.DataFrame:
-    """
-    Fetch NYPD motor vehicle collisions with lat/lon and pavement flag.
-    """
     if COLLISION_CACHE.exists():
         return pd.read_parquet(COLLISION_CACHE)
 
+    two_years_ago = (datetime.now(timezone.utc) - timedelta(days=730)).strftime(
+        "%Y-%m-%dT00:00:00"
+    )
     params = {
-        "$limit": limit,
+        "$limit":  limit,
         "$select": (
             "collision_id,crash_date,borough,latitude,longitude,"
             "contributing_factor_vehicle_1,contributing_factor_vehicle_2,"
             "number_of_persons_injured,number_of_persons_killed"
         ),
-        "$where": "latitude IS NOT NULL AND longitude IS NOT NULL",
-        "$order": "crash_date DESC",
+        "$where":  (
+            f"latitude IS NOT NULL AND longitude IS NOT NULL "
+            f"AND crash_date >= '{two_years_ago}'"
+        ),
+        "$order":  "crash_date DESC",
     }
     df = _get(COLLISION_URL, params)
     if df.empty:
@@ -167,11 +219,8 @@ def _fetch_collisions(limit: int = 50_000) -> pd.DataFrame:
     df = df[df["latitude"].between(40.4, 40.95)]
     df = df[df["longitude"].between(-74.3, -73.6)]
 
-    # flag pavement-related crashes
     for col in ["contributing_factor_vehicle_1", "contributing_factor_vehicle_2"]:
-        if col not in df.columns:
-            df[col] = ""
-        df[col] = df[col].fillna("")
+        df[col] = df.get(col, pd.Series("", index=df.index)).fillna("")
 
     df["is_pavement_crash"] = (
         df["contributing_factor_vehicle_1"].isin(PAVEMENT_FACTORS) |
@@ -188,78 +237,77 @@ def _fetch_collisions(limit: int = 50_000) -> pd.DataFrame:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _join_traffic(potholes: pd.DataFrame, traffic: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add traffic_volume column by matching street_name + borough.
-    Rows with no match get NaN (XGBoost handles missing values natively).
-    Falls back to borough median when a street isn't in the traffic dataset.
-    """
     df = potholes.copy()
-
     if traffic.empty:
         df["traffic_volume"] = np.nan
         return df
 
-    # Build lookup: (street_key, boro_key) → max daily_avg_vol across segments
     lookup = (
         traffic.groupby(["street_key", "boro_key"])["daily_avg_vol"]
-        .max()
-        .to_dict()
+        .max().to_dict()
     )
+    boro_median = traffic.groupby("boro_key")["daily_avg_vol"].median().to_dict()
 
-    # Borough-level medians as fallback
-    boro_median = (
-        traffic.groupby("boro_key")["daily_avg_vol"]
-        .median()
-        .to_dict()
-    )
-
-    street_key = df.get("street_name", pd.Series("", index=df.index)).apply(_norm_street)
-    boro_key   = df["borough"].str.upper().str.strip()
-
-    def _lookup(sk, bk):
-        v = lookup.get((sk, bk))
-        if v is not None:
-            return v
-        return boro_median.get(bk, np.nan)
+    sk = df.get("street_name", pd.Series("", index=df.index)).apply(_norm_street)
+    bk = df["borough"].str.upper().str.strip()
 
     df["traffic_volume"] = [
-        _lookup(sk, bk) for sk, bk in zip(street_key, boro_key)
+        lookup.get((s, b), boro_median.get(b, np.nan))
+        for s, b in zip(sk, bk)
+    ]
+    return df
+
+
+def _join_aadt(potholes: pd.DataFrame, aadt: pd.DataFrame) -> pd.DataFrame:
+    """
+    Merge AADT (annual avg daily traffic) by road name + borough.
+    Provides a stable annual count vs. the snapshot-based traffic_volume.
+    Falls back to borough median AADT when street not matched.
+    """
+    df = potholes.copy()
+    if aadt.empty:
+        df["aadt"] = np.nan
+        return df
+
+    lookup = (
+        aadt.groupby(["street_key", "boro_key"])["count"]
+        .max().to_dict()
+    )
+    boro_median = aadt.groupby("boro_key")["count"].median().to_dict()
+
+    sk = df.get("street_name", pd.Series("", index=df.index)).apply(_norm_street)
+    bk = df["borough"].str.upper().str.strip()
+
+    df["aadt"] = [
+        lookup.get((s, b), boro_median.get(b, np.nan))
+        for s, b in zip(sk, bk)
     ]
     return df
 
 
 def _join_collisions(potholes: pd.DataFrame, collisions: pd.DataFrame) -> pd.DataFrame:
-    """
-    For each pothole, count collisions within CRASH_RADIUS_M metres and flag
-    any pavement-specific crash within PAVEMENT_CRASH_RADIUS_M metres.
-    Uses sklearn BallTree (haversine) for vectorised radius search.
-    """
     df = potholes.copy()
-
     if collisions.empty or len(collisions) < 10:
-        df["nearby_crashes"]       = 0
+        df["nearby_crashes"]        = 0
         df["pavement_crash_nearby"] = 0
         return df
 
-    collision_coords  = np.radians(collisions[["latitude", "longitude"]].values)
-    pavement_mask     = collisions["is_pavement_crash"].values.astype(bool)
-    pavement_coords   = collision_coords[pavement_mask]
+    c_coords = np.radians(collisions[["latitude", "longitude"]].values)
+    pav_mask  = collisions["is_pavement_crash"].values.astype(bool)
+    p_coords  = c_coords[pav_mask]
 
-    pothole_coords = np.radians(df[["latitude", "longitude"]].values)
+    pot_coords = np.radians(df[["latitude", "longitude"]].values)
+    R = 6_371_000
 
-    tree     = BallTree(collision_coords, metric="haversine")
-    p_tree   = BallTree(pavement_coords,  metric="haversine") if pavement_mask.any() else None
-
-    R = 6_371_000  # Earth radius metres
+    tree  = BallTree(c_coords, metric="haversine")
     df["nearby_crashes"] = tree.query_radius(
-        pothole_coords, r=CRASH_RADIUS_M / R, count_only=True
+        pot_coords, r=CRASH_RADIUS_M / R, count_only=True
     )
 
-    if p_tree is not None:
+    if pav_mask.any():
+        p_tree = BallTree(p_coords, metric="haversine")
         df["pavement_crash_nearby"] = (
-            p_tree.query_radius(
-                pothole_coords, r=PAVEMENT_CRASH_RADIUS_M / R, count_only=True
-            ) > 0
+            p_tree.query_radius(pot_coords, r=PAVEMENT_CRASH_RADIUS_M / R, count_only=True) > 0
         ).astype(int)
     else:
         df["pavement_crash_nearby"] = 0
@@ -275,9 +323,7 @@ def _get(url: str, params: dict) -> pd.DataFrame:
     resp = requests.get(url, params=params, timeout=60)
     resp.raise_for_status()
     data = resp.json()
-    if not data:
-        return pd.DataFrame()
-    return pd.DataFrame(data)
+    return pd.DataFrame(data) if data else pd.DataFrame()
 
 
 def _clean_potholes(df: pd.DataFrame) -> pd.DataFrame:
@@ -291,13 +337,11 @@ def _clean_potholes(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["longitude"].between(-74.3, -73.6)]
 
     for col, default in [
-        ("borough",       "UNKNOWN"),
-        ("descriptor",    ""),
-        ("status",        "Open"),
-        ("location_type", ""),
-        ("street_name",   ""),
+        ("borough", "UNKNOWN"), ("descriptor", ""), ("status", "Open"),
+        ("location_type", ""),  ("street_name", ""),
     ]:
-        df[col] = df.get(col, pd.Series(default, index=df.index)).str.strip().fillna(default)
+        col_data = df[col] if col in df.columns else pd.Series(default, index=df.index)
+        df[col] = col_data.astype(str).str.strip().fillna(default)
 
     df["borough"] = df["borough"].str.upper()
     return df.reset_index(drop=True)
@@ -310,10 +354,7 @@ _ABBREV = re.compile(
 )
 
 def _norm_street(name: str) -> str:
-    """Normalise a street name for fuzzy matching across datasets."""
     if not isinstance(name, str):
         return ""
-    s = name.upper().strip()
-    s = _ABBREV.sub("", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    s = _ABBREV.sub("", name.upper().strip())
+    return re.sub(r"\s+", " ", s).strip()
