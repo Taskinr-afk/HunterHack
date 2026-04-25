@@ -886,17 +886,17 @@ VITE_API_BASE_URL=https://your-backend.onrender.com
 
 After completing all your phases:
 
-- [ ] `uvicorn app.main:app --reload` starts without errors
-- [ ] `GET /` returns the API info JSON
-- [ ] `GET /api/potholes?limit=5` returns pothole data (after Developer A runs ETL)
-- [ ] `GET /api/potholes/{id}` returns detailed pothole with ML predictions
-- [ ] `GET /api/stats/summary` returns borough-level stats (after Developer A runs ETL)
-- [ ] `GET /api/stats/timeline` returns weekly time series
-- [ ] `GET /api/predictions/{id}` returns accident risk and repair ETA
-- [ ] `POST /api/alerts/send` with valid API key creates an alert
-- [ ] `GET /api/alerts/history` returns alert history
-- [ ] Swagger UI at `/docs` shows all endpoints
-- [ ] Heuristic fallback works when `.pkl` model files are missing
-- [ ] Real model predictions work after Developer A trains models
+- [x] `uvicorn app.main:app --reload` starts without errors
+- [x] `GET /` returns the API info JSON
+- [x] `GET /api/potholes?limit=5` returns pothole data (after Developer A runs ETL)
+- [x] `GET /api/potholes/{id}` returns detailed pothole with ML predictions
+- [x] `GET /api/stats/summary` returns borough-level stats (after Developer A runs ETL)
+- [x] `GET /api/stats/timeline` returns weekly time series
+- [x] `GET /api/predictions/{id}` returns accident risk and repair ETA
+- [x] `POST /api/alerts/send` with valid API key creates an alert
+- [x] `GET /api/alerts/history` returns alert history
+- [x] Swagger UI at `/docs` shows all endpoints
+- [x] Heuristic fallback works when `.pkl` model files are missing
+- [x] Real model predictions work after Developer A trains models
 
 Once both you and Developer A finish, run the full integration test together.
