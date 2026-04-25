@@ -27,7 +27,7 @@ def get_stats_summary():
             "SELECT AVG(age_days) FROM potholes WHERE status = 'Open'"
         ).fetchone()[0] or 0.0
 
-        by_borough: dict[str, BoroughStats] = {}
+        by_borough: dict[str, StatsBoroughEntry] = {}
         for borough in _BOROUGHS:
             open_c = conn.execute(
                 "SELECT COUNT(*) FROM potholes WHERE UPPER(borough)=? AND status='Open'",
@@ -52,14 +52,14 @@ def get_stats_summary():
             by_borough[borough.title()] = StatsBoroughEntry(
                 open_count       = open_c,
                 closed_count     = closed_c,
-                avg_days_open    = round(avg_b, 1),
+                avg_age_days     = round(avg_b, 1),
                 total_collisions = int(crashes),
             )
 
     return StatsSummary(
         total_open    = total_open,
         total_closed  = total_closed,
-        avg_days_open = round(avg_days, 1),
+        avg_age_days  = round(avg_days, 1),
         by_borough    = by_borough,
     )
 

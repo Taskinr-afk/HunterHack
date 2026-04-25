@@ -36,10 +36,10 @@ def generate_alert_message(pothole: dict, custom_message: Optional[str] = None) 
 
 
 def send_alert_email(pothole: dict, message: str) -> bool:
-    """Send email. Returns True if sent, False if SMTP not configured (logs instead)."""
+    """Send email. Returns True if actually delivered, False if SMTP not configured or failed."""
     if not SMTP_USER or not SMTP_PASSWORD:
         print(f"[ALERT — no SMTP] {message}")
-        return True   # treat as success for demo
+        return False
 
     msg = MIMEMultipart()
     msg["From"]    = FROM_EMAIL
