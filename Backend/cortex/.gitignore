@@ -1,5 +1,3 @@
-models/*.joblib
 models/*.parquet
-models/*.json
 __pycache__/
 *.pyc
