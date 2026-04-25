@@ -37,7 +37,7 @@ def list_potholes(
     with get_conn() as conn:
         rows = conn.execute(sql, params).fetchall()
 
-    return [_to_pothole_response(dict(r)) for r in rows]
+    return [PotholeResponse(**_map(dict(r))) for r in rows]
 
 
 @router.get("/{pothole_id}", response_model=PotholeDetailResponse)
@@ -54,28 +54,36 @@ def get_pothole_detail(pothole_id: str):
     pothole     = dict(row)
     predictions = predict_for_pothole(pothole)
 
+    base = _map(pothole)
     return PotholeDetailResponse(
-        **_to_pothole_response(pothole),
-        nearby_collision_count = pothole.get("nearby_crashes", 0),
-        traffic_volume         = int(pothole.get("traffic_volume") or 0) or None,
-        accident_risk          = predictions["accident_risk"],
-        accident_risk_probability = predictions["accident_risk_probability"],
-        predicted_repair_days  = predictions["predicted_repair_days"],
+        **base,
+        accident_risk              = predictions["accident_risk"],
+        accident_risk_probability  = predictions.get("accident_risk_probability"),
+        predicted_repair_days     = predictions.get("predicted_repair_days"),
+        fix_days_estimate         = pothole.get("fix_days_estimate"),
+        prob_low                  = pothole.get("prob_low"),
+        prob_medium               = pothole.get("prob_medium"),
+        prob_high                 = pothole.get("prob_high"),
+        prob_critical             = pothole.get("prob_critical"),
     )
 
 
-def _to_pothole_response(r: dict) -> dict:
-    """Map DB columns to PotholeResponse schema (only safe fields)."""
+def _map(r: dict) -> dict:
+    """Map DB row dict to PotholeResponse field names."""
     return dict(
-        id           = r.get("unique_key", ""),
-        latitude     = r.get("latitude", 0.0),
-        longitude    = r.get("longitude", 0.0),
-        borough      = r.get("borough", ""),
-        zip_code     = None,
-        descriptor   = r.get("descriptor", ""),
-        status       = r.get("status", ""),
-        created_date = str(r.get("created_date", "")),
-        closed_date  = str(r.get("closed_date", "")) if r.get("closed_date") else None,
-        days_open    = int(r.get("age_days") or 0),
-        impact_score = r.get("risk_score"),
+        unique_key     = r.get("unique_key", ""),
+        latitude       = r.get("latitude", 0.0),
+        longitude      = r.get("longitude", 0.0),
+        borough        = r.get("borough"),
+        street_name    = r.get("street_name"),
+        descriptor     = r.get("descriptor"),
+        status         = r.get("status", ""),
+        created_date   = str(r.get("created_date", "")) if r.get("created_date") else None,
+        closed_date    = str(r.get("closed_date", "")) if r.get("closed_date") else None,
+        age_days       = float(r.get("age_days") or 0),
+        risk_score     = r.get("risk_score"),
+        urgency_label  = r.get("urgency_label"),
+        urgency_tier   = r.get("urgency_tier"),
+        nearby_crashes = r.get("nearby_crashes", 0),
+        traffic_volume = r.get("traffic_volume"),
     )

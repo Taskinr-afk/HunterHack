@@ -5,7 +5,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-# ── GeoJSON ────────────────────────────────────────────────────────────────────
+# ── GeoJSON ──────────────────────────────────────────────────────────────────────
 
 class GeoJSONPoint(BaseModel):
     type: str = "Point"
@@ -29,7 +29,7 @@ class PotholeProperties(BaseModel):
     pavement_crash_nearby:  int = 0
     prob_low:               Optional[float] = None
     prob_medium:            Optional[float] = None
-    prob_high:              Optional[float] = None
+    prob_high:               Optional[float] = None
     prob_critical:          Optional[float] = None
     created_date:           Optional[str]   = None
     closed_date:            Optional[str]   = None
@@ -47,7 +47,7 @@ class GeoJSONFeatureCollection(BaseModel):
     meta:     dict[str, Any] = {}
 
 
-# ── Input validation (frontend → API) ─────────────────────────────────────────
+# ── Input validation (frontend → API) ────────────────────────────────────────────
 
 class PotholeFilterParams(BaseModel):
     borough: Optional[str] = Field(None, pattern="^(Manhattan|Brooklyn|Queens|Bronx|Staten Island)$")
@@ -74,29 +74,36 @@ class PotholePredictRequest(BaseModel):
     )
 
 
-# ── Output models (API → frontend) ────────────────────────────────────────────
+# ── Output models (API → frontend) ──────────────────────────────────────────────
 # Only safe fields — no personal info like complainant names or phone numbers.
 
 class PotholeResponse(BaseModel):
-    id:           str
-    latitude:     float
-    longitude:    float
-    borough:      Optional[str]  = None
-    zip_code:     Optional[str]  = None
-    descriptor:   Optional[str]  = None
-    status:       str
-    created_date: str
-    closed_date:  Optional[str]  = None
-    days_open:    int
-    impact_score: Optional[float] = None
+    unique_key:    str
+    latitude:      float
+    longitude:     float
+    borough:       Optional[str]  = None
+    street_name:   Optional[str]  = None
+    descriptor:    Optional[str]  = None
+    status:        str
+    created_date:  Optional[str]  = None
+    closed_date:   Optional[str]  = None
+    age_days:      float
+    risk_score:    Optional[float] = None
+    urgency_label: Optional[str]   = None
+    urgency_tier: Optional[int]    = None
+    nearby_crashes: int           = 0
+    traffic_volume: Optional[float] = None
 
 
 class PotholeDetailResponse(PotholeResponse):
-    nearby_collision_count:    int            = 0
-    traffic_volume:            Optional[int]  = None
-    accident_risk:             str            = "LOW"
-    accident_risk_probability: float          = 0.0
-    predicted_repair_days:     Optional[int]  = None
+    accident_risk:              Optional[str]   = None
+    accident_risk_probability:  Optional[float]  = None
+    predicted_repair_days:     Optional[int]    = None
+    fix_days_estimate:         Optional[int]    = None
+    prob_low:                   Optional[float]  = None
+    prob_medium:               Optional[float]  = None
+    prob_high:                  Optional[float]  = None
+    prob_critical:             Optional[float]  = None
 
 
 class PotholePrediction(BaseModel):
@@ -115,6 +122,8 @@ class PotholePredictResponse(BaseModel):
     predictions:   list[PotholePrediction]
     model_version: str = "1.0"
 
+
+# ── Stats ────────────────────────────────────────────────────────────────────────
 
 class BoroughStats(BaseModel):
     borough:        str
@@ -137,19 +146,17 @@ class StatsResponse(BaseModel):
     by_borough:     list[BoroughStats]
 
 
-# ── Dev B plan schemas ─────────────────────────────────────────────────────────
-
 class StatsBoroughEntry(BaseModel):
     open_count:       int
-    closed_count:     int
-    avg_days_open:    float
+    closed_count:    int
+    avg_age_days:    float
     total_collisions: int
 
 
 class StatsSummary(BaseModel):
     total_open:    int
     total_closed:  int
-    avg_days_open: float
+    avg_age_days:  float
     by_borough:    dict[str, StatsBoroughEntry]
 
 
@@ -158,6 +165,8 @@ class TimelinePoint(BaseModel):
     opened: int
     closed: int
 
+
+# ── Alerts ───────────────────────────────────────────────────────────────────────
 
 class AlertResponse(BaseModel):
     id:         int
