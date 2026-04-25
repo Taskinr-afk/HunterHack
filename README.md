@@ -70,10 +70,10 @@ We pull live pothole data from NYC Open Data, visualize every report on an inter
 
 | Name | Role |
 |------|------|
-| Taskin | Frontend |
-| Kevin | TBD |
-| Kazi | TBD |
-| Rakhmonjon | TBD |
+| Taskin | Frontend — Map, UI, dashboard, animations |
+| Kevin | Backend + ML — API, XGBoost pipeline, data, alerts |
+| Kazi | Data + Polish — Testing, demo prep, deployment |
+| Rakhmonjon | Full-stack + Security — CORS, validation, integration |
 
 **HunterHack 2026** — Hunter College Hackathon, April 25, 2026
 

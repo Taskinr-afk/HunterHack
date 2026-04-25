@@ -13,10 +13,10 @@
 
 | Role | Person | Focus |
 |------|--------|-------|
-| Frontend | Person A | Map, tooltips, detail panel, dashboard, animations |
-| Backend + ML | Person B | API, database, ETL, model training, predictions |
-| Full-stack + Security | Person C | Alert system, security, CORS, validation, integration |
-| Data + Polish | Person D | Data fetching, testing, demo prep, deployment |
+| Frontend | Person A — Taskin | Map, tooltips, detail panel, dashboard, animations |
+| Backend + ML | Person B — Kevin | API, database, ETL, model training, predictions |
+| Full-stack + Security | Person C — Rakhmonjon | Alert system, security, CORS, validation, integration |
+| Data + Polish | Person D — Kazi | Data fetching, testing, demo prep, deployment |
 
 **If you're 2-3 people:** Combine roles. Frontend person does all UI. Backend person does all API + ML. Both handle their own deployment.
 

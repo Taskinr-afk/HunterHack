@@ -36,7 +36,7 @@ from .api.potholes import router as potholes_router
 from .api.stats import router as stats_router
 from .api.predictions import router as predictions_router
 from .api.alerts_api import router as alerts_api_router
-from .database import init_db, upsert_potholes, query_potholes, get_stats, get_conn, POTHOLE_COLS
+from .database import init_db, upsert_potholes, query_potholes, get_stats
 from .schemas import (
     GeoJSONFeatureCollection,
     GeoJSONFeature,
@@ -192,9 +192,10 @@ def potholes_geojson(
 @app.get("/potholes/{unique_key}")
 @limiter.limit("120/minute")
 def get_pothole(unique_key: str, request: Request):
+    from .database import get_conn
     with get_conn() as conn:
         row = conn.execute(
-            f"SELECT {POTHOLE_COLS} FROM potholes WHERE unique_key = ?", (unique_key,)
+            "SELECT * FROM potholes WHERE unique_key = ?", (unique_key,)
         ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Pothole not found")
@@ -286,10 +287,8 @@ def admin_refresh(secret: str = Query(...)):
 
     from Backend.cortex.data import fetch_all
     from Backend.cortex.model import score_potholes
-    from .etl import validate_pothole_data
 
     df     = fetch_all(use_cache=False)
-    df     = validate_pothole_data(df)
     scored = score_potholes(df)
     n      = upsert_potholes(scored)
 
