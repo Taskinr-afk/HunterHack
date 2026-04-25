@@ -18,6 +18,7 @@ Run:
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from typing import Optional
 
 import pandas as pd
@@ -53,11 +54,19 @@ load_dotenv()
 # ── Rate limiter ───────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="PotholeIQ API",
     description="NYC Pothole Risk Intelligence — ML-powered scoring and alerts",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -104,11 +113,6 @@ app.include_router(potholes_router)     # /api/potholes
 app.include_router(stats_router)        # /api/stats/*
 app.include_router(predictions_router)  # /api/predictions/*
 app.include_router(alerts_api_router)   # /api/alerts/*
-
-
-@app.on_event("startup")
-def startup():
-    init_db()
 
 
 # ── Lazy model loader ──────────────────────────────────────────────────────────
