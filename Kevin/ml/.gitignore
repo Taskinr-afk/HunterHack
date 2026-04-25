@@ -1,0 +1,4 @@
+models/*.json
+models/*.parquet
+__pycache__/
+*.pyc
