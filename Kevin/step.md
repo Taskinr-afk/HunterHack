@@ -23,7 +23,7 @@ This file tracks the current step and progress for backend/API work in the kevin
 ## Current Step
 
 - Phase 6: Frontend Integration & Deployment Prep
-- Step 6.2: Wire API to frontend — confirm GeoJSON contract with Taskin, test `/potholes/geojson` response shape matches what Leaflet/Mapbox expects
+- Step 6.3: Wire API to frontend — confirm GeoJSON contract with Taskin, test `/potholes/geojson` response shape matches what Leaflet/Mapbox expects
 
 
 
@@ -50,6 +50,7 @@ This file tracks the current step and progress for backend/API work in the kevin
   - Step 5.1: All endpoints and model predictions tested and verified (API, DB, ML)
 - Phase 6: Frontend Integration & Deployment Prep
   - Step 6.1: Cleaned Copilot stubs from main.py, CORS wired to CORS_ORIGINS env var, .env.example and Dockerfile created (kevin/api/main.py, kevin/.env.example, kevin/Dockerfile)
+  - Step 6.2: Data export + embedding pipeline added (kevin/cortex/embed.py → kevin/data/potholes_raw.csv + potholes_embeddings.csv, 3,936 rows, 384-dim MiniLM embeddings)
 
 ---
 
