@@ -32,13 +32,15 @@ def test_get_potholes_fields_present():
     data = response.json()
     if data:
         p = data[0]
-        assert "id" in p
+        assert "unique_key" in p
         assert "latitude" in p
         assert "longitude" in p
         assert "borough" in p
         assert "status" in p
         assert "days_open" in p
         assert "impact_score" in p
+        assert "address" in p
+        assert "city" in p
 
 
 def test_get_potholes_borough_filter():
@@ -62,12 +64,12 @@ def test_get_pothole_detail():
     ids = client.get("/api/potholes?limit=1").json()
     if not ids:
         pytest.skip("No potholes in DB")
-    pothole_id = ids[0]["id"]
+    pothole_id = ids[0]["unique_key"]
 
     response = client.get(f"/api/potholes/{pothole_id}")
     assert response.status_code == 200
     data = response.json()
-    assert data["id"] == pothole_id
+    assert data["unique_key"] == pothole_id
     assert "accident_risk" in data
     assert data["accident_risk"] in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     assert "accident_risk_probability" in data

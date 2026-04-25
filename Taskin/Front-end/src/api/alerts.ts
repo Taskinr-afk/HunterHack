@@ -2,9 +2,9 @@ import { fetchAPI } from "./client";
 import type { AdminRefreshResponse, AlertResponse } from "../types";
 
 export function sendAlert(potholeId: string): Promise<AlertResponse> {
-  return fetchAPI<AlertResponse>("/alerts/send", {
+  // Public report endpoint — no API key needed from the UI
+  return fetchAPI<AlertResponse>(`/alerts/report?pothole_id=${encodeURIComponent(potholeId)}`, {
     method: "POST",
-    body: JSON.stringify({ pothole_id: potholeId }),
   });
 }
 

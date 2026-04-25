@@ -155,3 +155,39 @@ async def scan_and_alert(
 def alert_history(limit: int = 100):
     """Return recent alert history from SQLite."""
     return get_alert_history(limit=limit)
+
+
+@router.post("/report")
+async def report_pothole(pothole_id: str, message: Optional[str] = None):
+    """
+    Public endpoint for the frontend — no API key required.
+    Citizens can report a pothole for DOT attention from the map UI.
+    """
+    from .database import get_conn as _conn
+    with _conn() as conn:
+        row = conn.execute(
+            f"SELECT {POTHOLE_COLS} FROM potholes WHERE unique_key = ?",
+            (pothole_id,)
+        ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Pothole {pothole_id} not found")
+
+    pothole       = dict(row)
+    subject, body = _build_alert(pothole, message)
+    delivered     = _send_email(subject, body)
+
+    alert_id = insert_alert(
+        pothole_id  = pothole_id,
+        urgency     = pothole.get("urgency_label", ""),
+        risk_score  = pothole.get("risk_score", 0),
+        borough     = pothole.get("borough", ""),
+        street_name = pothole.get("street_name", ""),
+        message     = message or subject,
+        delivered   = delivered,
+    )
+    return {
+        "status":     "reported",
+        "alert_id":   alert_id,
+        "pothole_id": pothole_id,
+        "sent_at":    datetime.now(timezone.utc).isoformat(),
+    }

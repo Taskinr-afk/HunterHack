@@ -9,17 +9,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_PATH = os.getenv("DATABASE_URL", "sqlite:///./potholes.db").replace("sqlite:///./", "")
+_DEFAULT_DB = os.path.join(os.path.dirname(__file__), "..", "cortex", "models", "potholes.db")
+DB_PATH = os.getenv("DATABASE_URL", f"sqlite:///{_DEFAULT_DB}").replace("sqlite:///", "")
 
 # Columns we expose from the potholes table — never SELECT *
 POTHOLE_COLS = """unique_key, latitude, longitude, borough, street_name,
-    descriptor, status, created_date, closed_date, location_type,
+    descriptor, status, created_date, closed_date,
     age_days, risk_score, urgency_label, urgency_tier, fix_days_estimate,
     traffic_volume, aadt, nearby_crashes, pavement_crash_nearby,
-    prob_low, prob_medium, prob_high, prob_critical"""
+    prob_low, prob_medium, prob_high, prob_critical, scored_at"""
+
 
 # Columns we expose from the alerts table
-ALERT_COLS = "id, pothole_id, message, sent_at, status, urgency, risk_score, borough, street_name, delivered"
+ALERT_COLS = "id, pothole_id, urgency, risk_score, borough, street_name, message, sent_at, delivered"
 
 
 # ── Database connection ────────────────────────────────────────────────────────
@@ -217,9 +219,9 @@ def insert_alert(
     """Insert an alert and return its id."""
     with get_db() as conn:
         cur = conn.execute(
-            f"INSERT INTO alerts (pothole_id, message, sent_at, status, urgency, risk_score, borough, street_name, delivered) "
-            f"VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?, ?)",
-            (pothole_id, message, status, urgency, risk_score, borough, street_name, 1 if delivered else 0),
+            f"INSERT INTO alerts (pothole_id, urgency, risk_score, borough, street_name, message, delivered) "
+            f"VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (pothole_id, urgency, risk_score, borough, street_name, message, 1 if delivered else 0),
         )
         conn.commit()
         return cur.lastrowid

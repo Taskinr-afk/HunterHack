@@ -78,32 +78,39 @@ class PotholePredictRequest(BaseModel):
 # Only safe fields — no personal info like complainant names or phone numbers.
 
 class PotholeResponse(BaseModel):
-    unique_key:    str
-    latitude:      float
-    longitude:     float
-    borough:       Optional[str]  = None
-    street_name:   Optional[str]  = None
-    descriptor:    Optional[str]  = None
-    status:        str
-    created_date:  Optional[str]  = None
-    closed_date:   Optional[str]  = None
-    age_days:      float
-    risk_score:    Optional[float] = None
-    urgency_label: Optional[str]   = None
-    urgency_tier: Optional[int]    = None
-    nearby_crashes: int           = 0
-    traffic_volume: Optional[float] = None
+    unique_key:             str
+    latitude:               float
+    longitude:              float
+    borough:                Optional[str]   = None
+    city:                   Optional[str]   = None       # always "New York"
+    zip_code:               Optional[str]   = None
+    address:                Optional[str]   = None       # composed street + borough
+    street_name:            Optional[str]   = None
+    descriptor:             Optional[str]   = None
+    status:                 str
+    created_date:           Optional[str]   = None
+    closed_date:            Optional[str]   = None
+    age_days:               float
+    days_open:              Optional[int]   = None       # alias for age_days
+    risk_score:             Optional[float] = None
+    impact_score:           Optional[float] = None       # alias for risk_score
+    urgency_label:          Optional[str]   = None
+    urgency_tier:           Optional[int]   = None
+    nearby_crashes:         int             = 0
+    nearby_collision_count: Optional[int]   = None       # alias for nearby_crashes
+    traffic_volume:         Optional[float] = None
 
 
 class PotholeDetailResponse(PotholeResponse):
     accident_risk:              Optional[str]   = None
-    accident_risk_probability:  Optional[float]  = None
-    predicted_repair_days:     Optional[int]    = None
-    fix_days_estimate:         Optional[int]    = None
-    prob_low:                   Optional[float]  = None
-    prob_medium:               Optional[float]  = None
-    prob_high:                  Optional[float]  = None
-    prob_critical:             Optional[float]  = None
+    accident_risk_probability:  Optional[float] = None
+    predicted_repair_days:      Optional[int]   = None
+    repair_eta:                 Optional[str]   = None   # ISO date of estimated fix
+    fix_days_estimate:          Optional[int]   = None
+    prob_low:                   Optional[float] = None
+    prob_medium:                Optional[float] = None
+    prob_high:                  Optional[float] = None
+    prob_critical:              Optional[float] = None
 
 
 class PotholePrediction(BaseModel):
@@ -148,15 +155,15 @@ class StatsResponse(BaseModel):
 
 class StatsBoroughEntry(BaseModel):
     open_count:       int
-    closed_count:    int
-    avg_age_days:    float
+    closed_count:     int
+    avg_days_open:    float   # matches frontend BoroughStats.avg_days_open
     total_collisions: int
 
 
 class StatsSummary(BaseModel):
     total_open:    int
     total_closed:  int
-    avg_age_days:  float
+    avg_days_open: float      # matches frontend StatsSummary.avg_days_open
     by_borough:    dict[str, StatsBoroughEntry]
 
 
