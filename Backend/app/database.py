@@ -17,7 +17,7 @@ from typing import Generator
 
 import pandas as pd
 
-DB_PATH = Path(__file__).parent.parent / "ml" / "models" / "potholes.db"
+DB_PATH = Path(__file__).parent.parent / "cortex" / "models" / "potholes.db"
 
 
 # ── Schema ─────────────────────────────────────────────────────────────────────

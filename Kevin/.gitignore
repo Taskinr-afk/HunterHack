@@ -1,5 +1,0 @@
-__pycache__/
-*.pyc
-cortex/models/*.joblib
-cortex/models/*.parquet
-cortex/models/*.db
