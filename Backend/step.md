@@ -10,6 +10,23 @@ This file tracks the current step and progress for backend/API work in the Backe
 
 ---
 
+## Dev B Verification Checklist — All Passed ✓  (2026-04-25)
+
+- [x] `uvicorn Backend.app.main:app --reload` starts without errors
+- [x] `GET /` returns `{"status": "PotholeIQ API is running", "version": "1.0.0"}`
+- [x] `GET /api/potholes?limit=5` returns 5 pothole records (3,936 total in DB)
+- [x] `GET /api/potholes/{id}` returns detail with `accident_risk`, `accident_risk_probability`, `predicted_repair_days`, `nearby_collision_count`, `traffic_volume`
+- [x] `GET /api/stats/summary` returns all 5 boroughs — 792 open, 2,899 closed, avg 12.2 days open
+- [x] `GET /api/stats/timeline` returns 4 weeks of opened vs closed counts
+- [x] `GET /api/predictions/{id}` returns `accident_risk=HIGH prob=0.518 repair_days=9 risk_score=51.8`
+- [x] `POST /api/alerts/send` with `x-api-key` header creates alert in DB, returns `id`, `status`, `sent_date`
+- [x] `GET /api/alerts/history` returns 3 alerts from SQLite
+- [x] Swagger UI at `/docs` — HTTP 200, **16 endpoints** registered
+- [x] Heuristic fallback confirmed: `age_days=45, borough=BROOKLYN` → `accident_risk=LOW predicted_repair_days=18`
+- [x] Real XGBoost model confirmed: high-risk input → `accident_risk=CRITICAL prob=0.885 repair_days=25`
+
+---
+
 ## Completed Steps
 
 - Phase 0: Python Environment Setup
