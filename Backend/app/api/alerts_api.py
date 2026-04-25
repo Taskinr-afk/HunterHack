@@ -31,7 +31,6 @@ async def send_alert(
     pothole = dict(row)
     message = generate_alert_message(pothole, alert.message)
     sent    = send_alert_email(pothole, message)
-    status  = "sent" if sent else "logged"
 
     alert_id = insert_alert(
         pothole_id  = alert.pothole_id,
@@ -47,7 +46,7 @@ async def send_alert(
         id         = alert_id,
         pothole_id = alert.pothole_id,
         sent_date  = datetime.now(timezone.utc).isoformat(),
-        status     = status,
+        status     = "sent" if sent else "logged",
         message    = message,
     )
 

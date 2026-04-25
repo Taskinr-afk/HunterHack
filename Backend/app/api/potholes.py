@@ -65,7 +65,7 @@ def get_pothole_detail(pothole_id: str):
 
 
 def _to_pothole_response(r: dict) -> dict:
-    """Map DB columns → PotholeResponse schema (only safe fields)."""
+    """Map DB columns to PotholeResponse schema (only safe fields)."""
     return dict(
         id           = r.get("unique_key", ""),
         latitude     = r.get("latitude", 0.0),
