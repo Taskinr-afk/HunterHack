@@ -34,6 +34,7 @@ from .schemas import (
     StatsResponse,
     BoroughStats,
 )
+from .alerts import router as alerts_router
 
 # lazy imports so the API can start even before models are trained
 _model = None
@@ -54,12 +55,18 @@ app = FastAPI(
     version="1.0.0",
 )
 
+_cors_origins = [
+    o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # frontend dev server
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Register alerts router
+app.include_router(alerts_router)
 
 
 @app.on_event("startup")
