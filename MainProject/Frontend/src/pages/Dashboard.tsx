@@ -76,7 +76,7 @@ export default function Dashboard() {
         </div>
         <div className="summary-card">
           <span className="summary-label">Avg days open</span>
-          <strong className="summary-value">{Math.round(summary.avg_days_open)}</strong>
+          <strong className="summary-value">{Math.round(summary.avg_age_days)}</strong>
         </div>
         <div className="summary-card">
           <span className="summary-label">Boroughs tracked</span>

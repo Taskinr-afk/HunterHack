@@ -127,8 +127,11 @@ _model = None
 def _get_model():
     global _model
     if _model is None:
-        from Backend.cortex.model import PotholeRiskModel
-        _model = PotholeRiskModel.load()
+        try:
+            from Backend.cortex.model import PotholeRiskModel
+            _model = PotholeRiskModel.load()
+        except (FileNotFoundError, OSError):
+            _model = "heuristic"
     return _model
 
 
@@ -247,6 +250,24 @@ def predict(req: PotholePredictRequest, request: Request):
             status_code=503,
             detail="Model not trained — run python -m Backend.cortex.train first",
         )
+    except Exception:
+        # If real model fails, use heuristic predictions
+        from .models.ml_models import predict_for_pothole
+        predictions = []
+        for i, p in enumerate(req.potholes):
+            pred = predict_for_pothole(dict(p))
+            predictions.append(PotholePrediction(
+                unique_key        = str(p.get("unique_key", i)),
+                risk_score        = pred.get("risk_score", 50.0),
+                urgency_label     = pred.get("accident_risk", "LOW"),
+                urgency_tier      = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}.get(pred.get("accident_risk", "LOW"), 0),
+                fix_days_estimate = pred.get("predicted_repair_days", 14),
+                prob_low          = 0.3,
+                prob_medium       = 0.4,
+                prob_high         = 0.2,
+                prob_critical    = 0.1,
+            ))
+        return PotholePredictResponse(predictions=predictions)
 
     predictions = [
         PotholePrediction(

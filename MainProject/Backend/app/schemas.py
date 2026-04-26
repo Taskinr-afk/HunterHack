@@ -82,22 +82,16 @@ class PotholeResponse(BaseModel):
     latitude:               float
     longitude:              float
     borough:                Optional[str]   = None
-    city:                   Optional[str]   = None       # always "New York"
-    zip_code:               Optional[str]   = None
-    address:                Optional[str]   = None       # composed street + borough
     street_name:            Optional[str]   = None
     descriptor:             Optional[str]   = None
     status:                 str
     created_date:           Optional[str]   = None
     closed_date:            Optional[str]   = None
     age_days:               float
-    days_open:              Optional[int]   = None       # alias for age_days
     risk_score:             Optional[float] = None
-    impact_score:           Optional[float] = None       # alias for risk_score
     urgency_label:          Optional[str]   = None
     urgency_tier:           Optional[int]   = None
     nearby_crashes:         int             = 0
-    nearby_collision_count: Optional[int]   = None       # alias for nearby_crashes
     traffic_volume:         Optional[float] = None
 
 
@@ -156,14 +150,14 @@ class StatsResponse(BaseModel):
 class StatsBoroughEntry(BaseModel):
     open_count:       int
     closed_count:     int
-    avg_days_open:    float   # matches frontend BoroughStats.avg_days_open
+    avg_age_days:      float
     total_collisions: int
 
 
 class StatsSummary(BaseModel):
     total_open:    int
     total_closed:  int
-    avg_days_open: float      # matches frontend StatsSummary.avg_days_open
+    avg_age_days:  float
     by_borough:    dict[str, StatsBoroughEntry]
 
 
