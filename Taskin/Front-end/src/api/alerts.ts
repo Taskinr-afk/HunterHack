@@ -8,8 +8,13 @@ export function sendAlert(potholeId: string): Promise<AlertResponse> {
   });
 }
 
-export function adminRefresh(secret = "potholeiq-dev"): Promise<AdminRefreshResponse> {
-  return fetchAPI<AdminRefreshResponse>(`/admin/refresh?secret=${secret}`, {
+// Admin refresh must be called from server-side or with an explicit secret.
+// Never hardcode secrets in frontend code.
+export function adminRefresh(secret: string): Promise<AdminRefreshResponse> {
+  if (!secret) {
+    throw new Error("Admin secret is required — do not call this from the browser without a key");
+  }
+  return fetchAPI<AdminRefreshResponse>(`/admin/refresh?secret=${encodeURIComponent(secret)}`, {
     method: "POST",
   });
 }

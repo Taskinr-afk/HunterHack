@@ -11,7 +11,7 @@ import {
 import type { BoundsLike, Pothole, UserLocation } from "../types";
 import "leaflet/dist/leaflet.css";
 
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_URL = import.meta.env.VITE_TILE_URL || "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 const TILE_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO";
 
 interface PotholeMapProps {

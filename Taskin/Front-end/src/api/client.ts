@@ -2,6 +2,10 @@ const importMetaEnv = (import.meta as ImportMeta & {
   env: { VITE_API_BASE_URL?: string };
 }).env;
 
+if (!importMetaEnv.VITE_API_BASE_URL) {
+  console.warn("[PotholeIQ] VITE_API_BASE_URL not set — API calls will fail in production. Set it in .env");
+}
+
 const API_BASE = (importMetaEnv.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
 async function fetchAPI<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
