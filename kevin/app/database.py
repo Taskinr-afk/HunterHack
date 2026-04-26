@@ -19,6 +19,11 @@ import pandas as pd
 
 DB_PATH = Path(__file__).parent.parent / "cortex" / "models" / "potholes.db"
 
+POTHOLE_COLS = ("unique_key, latitude, longitude, borough, street_name, descriptor, "
+                "status, created_date, closed_date, age_days, risk_score, urgency_label, "
+                "urgency_tier, fix_days_estimate, traffic_volume, aadt, nearby_crashes, "
+                "pavement_crash_nearby, prob_low, prob_medium, prob_high, prob_critical")
+
 
 # ── Schema ─────────────────────────────────────────────────────────────────────
 

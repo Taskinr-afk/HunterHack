@@ -5,23 +5,18 @@ Kevin owns `src/api/` only — all UI/component files belong to Taskin.
 
 ---
 
+
+
 ## Current Step
 
-- **Phase 9: Live Frontend Hookup**
-- Step 9.2: End-to-end smoke test — run both servers, verify map dots load
-  from real NYC data, clicking a dot shows live ML predictions
+- **All planned frontend integration steps are complete.**
+
+If further improvements or maintenance are needed, add new steps below.
 
 ---
 
 ## Upcoming Steps
 
-- **Step 9.3:** Alert flow — verify "Alert DOT" button in `PotholeDetail.tsx`
-  hits `POST /alerts/report` (already wired in `src/api/alerts.ts`)
-- **Step 9.3:** Alert flow — "Alert DOT" button in `PotholeDetail.tsx` hits
-  `POST /alerts/report` (public endpoint, no API key needed)
-- **Step 9.4:** Viewport filter — confirm `useViewportPotholes.ts` passes
-  `lat_min`, `lat_max`, `lng_min`, `lng_max` to `getPotholesGeoJSON()` so
-  the map only fetches dots in the current viewport
 - **Step 9.5:** Deploy — backend on Render, frontend on Vercel, update
   `VITE_API_BASE_URL` to the live Render URL
 

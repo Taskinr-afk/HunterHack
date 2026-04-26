@@ -15,18 +15,22 @@ class GeoJSONPoint(BaseModel):
 class PotholeProperties(BaseModel):
     unique_key:             str
     status:                 str
-    descriptor:             str
-    borough:                str
-    street_name:            str
-    age_days:               float
-    risk_score:             float
-    urgency_label:          str
-    urgency_tier:           int
-    fix_days_estimate:      int
+    descriptor:             Optional[str]   = None
+    borough:                Optional[str]   = None
+    street_name:            Optional[str]   = None
+    address:                Optional[str]   = None
+    city:                   Optional[str]   = None
+    age_days:               float           = 0
+    days_open:              Optional[int]   = None
+    risk_score:             float           = 0
+    urgency_label:          Optional[str]   = None
+    urgency_tier:           int             = 0
+    fix_days_estimate:      int             = 30
     traffic_volume:         Optional[float] = None
     aadt:                   Optional[float] = None
-    nearby_crashes:         int = 0
-    pavement_crash_nearby:  int = 0
+    nearby_crashes:         int             = 0
+    nearby_collision_count: Optional[int]   = None
+    pavement_crash_nearby:  int             = 0
     prob_low:               Optional[float] = None
     prob_medium:            Optional[float] = None
     prob_high:              Optional[float] = None
@@ -77,23 +81,39 @@ class PotholePredictRequest(BaseModel):
 # ── Output models (API → frontend) ────────────────────────────────────────────
 
 class PotholeResponse(BaseModel):
-    id:           str
-    latitude:     float
-    longitude:    float
-    borough:      str
-    status:       str
-    created_date: str
-    closed_date:  Optional[str]
-    days_open:    int
-    descriptor:   str
+    unique_key:             str
+    latitude:               float
+    longitude:              float
+    borough:                Optional[str]   = None
+    city:                   Optional[str]   = None
+    zip_code:               Optional[str]   = None
+    address:                Optional[str]   = None
+    street_name:            Optional[str]   = None
+    descriptor:             Optional[str]   = None
+    status:                 str
+    created_date:           Optional[str]   = None
+    closed_date:            Optional[str]   = None
+    age_days:               float           = 0
+    days_open:              Optional[int]   = None
+    risk_score:             Optional[float] = None
+    impact_score:           Optional[float] = None
+    urgency_label:          Optional[str]   = None
+    urgency_tier:           Optional[int]   = None
+    nearby_crashes:         int             = 0
+    nearby_collision_count: Optional[int]   = None
+    traffic_volume:         Optional[float] = None
 
 
 class PotholeDetailResponse(PotholeResponse):
-    impact_score:           Optional[float] = None
-    accident_risk:          Optional[str]   = None   # LOW / MEDIUM / HIGH / CRITICAL
-    predicted_repair_days:  Optional[int]   = None
-    nearby_collision_count: int             = 0
-    traffic_volume:         Optional[int]   = None
+    accident_risk:              Optional[str]   = None
+    accident_risk_probability:  Optional[float] = None
+    predicted_repair_days:      Optional[int]   = None
+    repair_eta:                 Optional[str]   = None
+    fix_days_estimate:          Optional[int]   = None
+    prob_low:                   Optional[float] = None
+    prob_medium:                Optional[float] = None
+    prob_high:                  Optional[float] = None
+    prob_critical:              Optional[float] = None
 
 
 class PotholePrediction(BaseModel):
@@ -132,30 +152,6 @@ class StatsResponse(BaseModel):
     low:            int
     avg_risk_score: float
     by_borough:     list[BoroughStats]
-
-
-# ── Dev B plan schemas ─────────────────────────────────────────────────────────
-
-class PotholeResponse(BaseModel):
-    id:           str
-    latitude:     float
-    longitude:    float
-    borough:      Optional[str]  = None
-    zip_code:     Optional[str]  = None
-    descriptor:   Optional[str]  = None
-    status:       str
-    created_date: str
-    closed_date:  Optional[str]  = None
-    days_open:    int
-    impact_score: Optional[float] = None
-
-
-class PotholeDetailResponse(PotholeResponse):
-    nearby_collision_count:    int            = 0
-    traffic_volume:            Optional[int]  = None
-    accident_risk:             str            = "LOW"
-    accident_risk_probability: float          = 0.0
-    predicted_repair_days:     Optional[int]  = None
 
 
 class StatsBoroughEntry(BaseModel):

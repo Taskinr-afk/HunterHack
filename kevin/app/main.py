@@ -116,6 +116,16 @@ app.include_router(alerts_api_router)   # /api/alerts/*
 
 
 # ── Lazy model loader ──────────────────────────────────────────────────────────
+def _compose_address(r: dict) -> str | None:
+    street  = str(r.get("street_name") or "").strip()
+    borough = str(r.get("borough") or "").strip()
+    if street and street.lower() != "nan" and borough:
+        return f"{street}, {borough.title()}, NY"
+    if borough:
+        return f"{borough.title()}, NY"
+    return None
+
+
 _model = None
 
 def _get_model():
@@ -165,7 +175,10 @@ def potholes_geojson(
                     descriptor            = r.get("descriptor", ""),
                     borough               = r.get("borough", ""),
                     street_name           = r.get("street_name", ""),
+                    address               = _compose_address(r),
+                    city                  = "New York",
                     age_days              = float(r.get("age_days") or 0),
+                    days_open             = int(r.get("age_days") or 0),
                     risk_score            = float(r.get("risk_score") or 0),
                     urgency_label         = r.get("urgency_label", ""),
                     urgency_tier          = int(r.get("urgency_tier") or 0),
@@ -173,6 +186,7 @@ def potholes_geojson(
                     traffic_volume        = r.get("traffic_volume"),
                     aadt                  = r.get("aadt"),
                     nearby_crashes        = int(r.get("nearby_crashes") or 0),
+                    nearby_collision_count= int(r.get("nearby_crashes") or 0),
                     pavement_crash_nearby = int(r.get("pavement_crash_nearby") or 0),
                     prob_low              = r.get("prob_low"),
                     prob_medium           = r.get("prob_medium"),
