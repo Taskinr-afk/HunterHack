@@ -81,6 +81,7 @@ def seed(n: int = 500) -> None:
                 urgency_label, fix_days_estimate, prob_low, prob_medium, prob_high, prob_critical
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, rows)
+        conn.commit()
 
     print(f"Seeded {n} demo potholes into SQLite")
     print("  Run: PYTHONPATH=. uvicorn Backend.app.main:app --reload --port 8000")

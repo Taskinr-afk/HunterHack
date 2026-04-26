@@ -31,6 +31,7 @@ class PotholeProperties(BaseModel):
     prob_medium:            Optional[float] = None
     prob_high:               Optional[float] = None
     prob_critical:          Optional[float] = None
+    accident_risk_probability: Optional[float] = None
     created_date:           Optional[str]   = None
     closed_date:            Optional[str]   = None
 
@@ -150,7 +151,7 @@ class StatsResponse(BaseModel):
 class StatsBoroughEntry(BaseModel):
     open_count:       int
     closed_count:     int
-    avg_age_days:      float
+    avg_age_days:     float
     total_collisions: int
 
 

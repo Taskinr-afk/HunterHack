@@ -89,7 +89,7 @@ def get_pothole_detail(pothole_id: str):
 # ── Field mapping ──────────────────────────────────────────────────────────────
 
 def _map(r: dict) -> dict:
-    """Map DB columns → PotholeResponse fields."""
+    """Map DB columns → PotholeResponse fields (canonical schema only)."""
     age = float(r.get("age_days") or 0)
     return dict(
         unique_key              = r.get("unique_key", ""),

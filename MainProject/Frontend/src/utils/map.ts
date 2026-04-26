@@ -84,6 +84,20 @@ export function formatDate(value?: string | null): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
+export function formatRepairEta(days?: number | null, createdDate?: string | null): string {
+  if (days == null || days <= 0) {
+    return "N/A";
+  }
+
+  const start = createdDate ? new Date(createdDate) : new Date();
+  if (Number.isNaN(start.getTime())) {
+    return `${days} days`;
+  }
+
+  const eta = new Date(start.getTime() + days * 86400000);
+  return eta.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function toRadians(value: number): number {
   return (value * Math.PI) / 180;
 }

@@ -69,7 +69,8 @@ def init_db():
                 prob_low              REAL,
                 prob_medium           REAL,
                 prob_high             REAL,
-                prob_critical         REAL
+                prob_critical         REAL,
+                scored_at             TEXT
             );
 
             CREATE TABLE IF NOT EXISTS alerts (

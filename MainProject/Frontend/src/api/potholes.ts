@@ -72,7 +72,9 @@ function mapGeoJSONProperties(
     aadt: typeof props.aadt === "number" ? props.aadt : null,
     fix_days_estimate: typeof props.fix_days_estimate === "number" ? props.fix_days_estimate : null,
     accident_risk: (props.urgency_label as string)?.toUpperCase() ?? null,
-    accident_risk_probability: Math.round((probHigh + probCritical) * 1000) / 1000,
+    accident_risk_probability: typeof props.accident_risk_probability === "number"
+      ? props.accident_risk_probability
+      : Math.round((probHigh + probCritical) * 1000) / 1000,
     predicted_repair_days: typeof props.fix_days_estimate === "number" ? props.fix_days_estimate : null,
     prob_low: typeof props.prob_low === "number" ? props.prob_low : null,
     prob_medium: typeof props.prob_medium === "number" ? props.prob_medium : null,
@@ -104,6 +106,8 @@ export async function getPotholeById(uniqueKey: string): Promise<PotholeDetail> 
   // Normalize status and ensure field names match frontend types
   return {
     unique_key: String(raw.unique_key ?? ""),
+    latitude: typeof raw.latitude === "number" ? raw.latitude : null,
+    longitude: typeof raw.longitude === "number" ? raw.longitude : null,
     borough: String(raw.borough ?? ""),
     status: normalizeStatus(raw.status as string),
     descriptor: raw.descriptor as string | null ?? null,
@@ -127,6 +131,17 @@ export async function getPotholeById(uniqueKey: string): Promise<PotholeDetail> 
     prob_medium: typeof raw.prob_medium === "number" ? raw.prob_medium : null,
     prob_high: typeof raw.prob_high === "number" ? raw.prob_high : null,
     prob_critical: typeof raw.prob_critical === "number" ? raw.prob_critical : null,
+    repair_eta: (() => {
+      const days = typeof raw.fix_days_estimate === "number"
+        ? raw.fix_days_estimate
+        : typeof raw.predicted_repair_days === "number"
+          ? raw.predicted_repair_days
+          : null;
+      if (days == null || days <= 0) return null;
+      const start = raw.created_date ? new Date(raw.created_date as string) : new Date();
+      if (Number.isNaN(start.getTime())) return null;
+      return new Date(start.getTime() + days * 86400000).toISOString();
+    })(),
     created_date: raw.created_date as string | null ?? null,
     closed_date: raw.closed_date as string | null ?? null,
   };

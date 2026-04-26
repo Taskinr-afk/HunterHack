@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Bar,
@@ -10,41 +10,37 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import DataSourceBanner from "../components/DataSourceBanner";
+import ErrorMessage from "../components/ErrorMessage";
+import LoadingSpinner from "../components/LoadingSpinner";
+import { adminRefresh } from "../api/alerts";
 import { getCombinedStats } from "../api/stats";
 import { buildMockStatsResponse } from "../utils/mockData";
 
 export default function Dashboard() {
-  const { data: statsResponse, isLoading, error } = useQuery({
+  const queryClient = useQueryClient();
+  const { data: realStats, isLoading, error, refetch } = useQuery({
     queryKey: ["combined-stats"],
-    queryFn: async () => {
-      try {
-        const data = await getCombinedStats();
-        return data.summary.total_open > 0 ? data : buildMockStatsResponse();
-      } catch {
-        return buildMockStatsResponse();
-      }
+    queryFn: () => getCombinedStats(),
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: () => adminRefresh(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["combined-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["potholes"] });
     },
   });
 
-  if (isLoading || !statsResponse) {
-    return (
-      <motion.section className="page-stack" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="filter-shell dashboard-hero">
-          <div className="eyebrow">Loading dashboard...</div>
-        </div>
-      </motion.section>
-    );
+  const isMockData = !!error;
+  const statsResponse = isMockData ? buildMockStatsResponse() : realStats;
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading dashboard" />;
   }
 
-  if (error) {
-    return (
-      <motion.section className="page-stack" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="filter-shell dashboard-hero">
-          <div className="eyebrow">Error loading stats</div>
-          <p className="filter-copy">{String(error)}</p>
-        </div>
-      </motion.section>
-    );
+  if (!statsResponse) {
+    return <ErrorMessage message="Failed to load dashboard data" onRetry={() => refetch()} />;
   }
 
   const { summary, timeline } = statsResponse;
@@ -57,6 +53,8 @@ export default function Dashboard() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
+      <DataSourceBanner isMock={isMockData} onRetry={() => refetch()} />
+
       <section className="filter-shell dashboard-hero">
         <div className="eyebrow">Citywide performance</div>
         <h2 className="filter-title">PotholeIQ operations dashboard</h2>
@@ -145,6 +143,36 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+      </section>
+
+      <section className="content-panel admin-panel">
+        <div className="panel-head">
+          <div>
+            <div className="eyebrow">Admin tools</div>
+            <h3>Data refresh</h3>
+          </div>
+        </div>
+        <p className="filter-copy">
+          Re-fetch data from NYC Open Data, re-score all potholes with ML, and reload the database.
+        </p>
+        <button
+          type="button"
+          className="button button-danger"
+          onClick={() => refreshMutation.mutate()}
+          disabled={refreshMutation.isPending}
+        >
+          {refreshMutation.isPending ? "Refreshing data..." : "Refresh data"}
+        </button>
+        {refreshMutation.isSuccess && (
+          <p className="success-copy">
+            Data refreshed — {refreshMutation.data?.rows_upserted ?? 0} potholes updated.
+          </p>
+        )}
+        {refreshMutation.isError && (
+          <p className="error-copy">
+            Failed to refresh: {String(refreshMutation.error)}
+          </p>
+        )}
       </section>
     </motion.section>
   );

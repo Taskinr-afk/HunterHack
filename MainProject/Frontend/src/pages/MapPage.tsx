@@ -1,6 +1,7 @@
 import { useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import DataSourceBanner from "../components/DataSourceBanner";
 import MapFilters from "../components/MapFilters";
 import PotholeDetail from "../components/PotholeDetail";
 import PotholeMap from "../components/PotholeMap";
@@ -64,18 +65,14 @@ export default function MapPage() {
 
   const origin = location || DEFAULT_CENTER;
 
-  // Fetch potholes from the real API, fall back to mock data if empty/error
-  const { data: potholes = [], isLoading } = useQuery({
+  // Fetch potholes from the real API; fall back to mock data only when API fails
+  const { data: realPotholes, isLoading, error, refetch } = useQuery({
     queryKey: ["potholes-geojson", deferredFilters],
-    queryFn: async () => {
-      try {
-        const data = await getPotholesGeoJSON(deferredFilters);
-        return data.length > 0 ? data : mockPotholes;
-      } catch {
-        return mockPotholes;
-      }
-    },
+    queryFn: () => getPotholesGeoJSON(deferredFilters),
   });
+
+  const isMockData = !!error;
+  const potholes = isMockData ? mockPotholes : (realPotholes ?? []);
 
   // Fetch selected pothole detail
   const { data: selectedDetail } = useQuery({
@@ -101,8 +98,15 @@ export default function MapPage() {
       .sort((left, right) => left.distance - right.distance);
   }, [bounds, filtered, origin]);
 
-  const selectedPothole = selectedDetail ??
-    potholes.find((item) => item.unique_key === selectedKey) ?? null;
+  const geojsonMatch = potholes.find((item) => item.unique_key === selectedKey);
+  const selectedPothole: Pothole | null = selectedDetail
+    ? {
+        ...geojsonMatch,
+        ...selectedDetail,
+        latitude: geojsonMatch?.latitude ?? selectedDetail.latitude ?? DEFAULT_CENTER.latitude,
+        longitude: geojsonMatch?.longitude ?? selectedDetail.longitude ?? DEFAULT_CENTER.longitude,
+      }
+    : geojsonMatch ?? null;
 
   const activeCount = visible.length;
   const highRiskCount = filtered.filter((item) => (item.risk_score || 0) >= 80).length;
@@ -114,6 +118,8 @@ export default function MapPage() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
     >
+      <DataSourceBanner isMock={isMockData} onRetry={() => refetch()} />
+
       <MapFilters
         filters={filters}
         onChange={setFilters}
@@ -151,7 +157,10 @@ export default function MapPage() {
 
           <div className="results-list">
             {isLoading ? (
-              <div className="result-card">Loading potholes...</div>
+              <div className="result-card">
+                <div className="spinner" style={{ margin: "0 auto 0.5rem" }} />
+                <span className="status-copy">Loading potholes...</span>
+              </div>
             ) : visible.map(({ pothole, distance }, index) => (
               <ResultCard
                 key={pothole.unique_key}
@@ -166,7 +175,7 @@ export default function MapPage() {
 
         <div className="map-column">
           <PotholeMap
-            potholes={visible.slice(0, 18).map((item) => item.pothole)}
+            potholes={visible.map((item) => item.pothole)}
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
             onBoundsChange={setBounds}

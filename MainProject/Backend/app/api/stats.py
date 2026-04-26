@@ -52,7 +52,7 @@ def get_stats_summary():
             by_borough[borough.title()] = StatsBoroughEntry(
                 open_count       = open_c,
                 closed_count     = closed_c,
-                avg_age_days      = round(avg_b, 1),
+                avg_age_days     = round(avg_b, 1),
                 total_collisions = int(crashes),
             )
 

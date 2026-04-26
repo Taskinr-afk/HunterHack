@@ -30,7 +30,11 @@ export interface Pothole extends PotholeRecord {
   longitude: number;
 }
 
-export interface PotholeDetail extends PotholeRecord {}
+export interface PotholeDetail extends PotholeRecord {
+  latitude?: number | null;
+  longitude?: number | null;
+  repair_eta?: string | null;
+}
 
 export interface PointGeometry {
   type: "Point";

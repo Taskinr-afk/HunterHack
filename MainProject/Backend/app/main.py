@@ -80,7 +80,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # ── CORS ───────────────────────────────────────────────────────────────────────
 _cors_origins = [
     o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173").split(",")
     if o.strip()
 ]
 app.add_middleware(
@@ -103,8 +103,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "default-src 'self'; "
             "script-src 'self'; "
             "style-src 'self' 'unsafe-inline' https://api.mapbox.com; "
-            "img-src 'self' data: https://*.tile.openstreetmap.org https://api.mapbox.com; "
-            "connect-src 'self' https://api.mapbox.com https://data.cityofnewyork.us"
+            "img-src 'self' data: https://*.tile.openstreetmap.org https://api.mapbox.com https://*.cartocdn.com; "
+            "font-src 'self' https://api.mapbox.com https://*.cartocdn.com; "
+            "connect-src 'self' https://api.mapbox.com https://data.cityofnewyork.us https://*.cartocdn.com"
         )
         return response
 
@@ -130,7 +131,7 @@ def _get_model():
         try:
             from Backend.cortex.model import PotholeRiskModel
             _model = PotholeRiskModel.load()
-        except (FileNotFoundError, OSError):
+        except Exception:
             _model = "heuristic"
     return _model
 
@@ -187,6 +188,11 @@ def potholes_geojson(
                     prob_medium           = r.get("prob_medium"),
                     prob_high             = r.get("prob_high"),
                     prob_critical         = r.get("prob_critical"),
+                    accident_risk_probability = (
+                        round(float(r["prob_high"]) + float(r["prob_critical"]), 3)
+                        if r.get("prob_high") is not None and r.get("prob_critical") is not None
+                        else None
+                    ),
                     created_date          = r.get("created_date"),
                     closed_date           = r.get("closed_date"),
                 ),
@@ -218,9 +224,48 @@ def predict(req: PotholePredictRequest, request: Request):
     if not req.potholes:
         raise HTTPException(status_code=422, detail="potholes list is empty")
 
+    model = _get_model()
+
+    if model == "heuristic":
+        predictions = []
+        for p in req.potholes:
+            days_open    = float(p.get("age_days") or 0)
+            risk_score   = float(p.get("risk_score") or 0)
+            borough      = (p.get("borough") or "MANHATTAN").upper()
+            crashes      = int(p.get("nearby_crashes") or 0)
+
+            if risk_score > 0:
+                prob = min(risk_score / 100, 0.99)
+            else:
+                prob = min(days_open * 0.003 + crashes * 0.02, 0.95)
+
+            if prob > 0.75 or risk_score > 75:
+                label, tier = "Critical", 3
+            elif prob > 0.50 or risk_score > 50:
+                label, tier = "High", 2
+            elif prob > 0.25 or risk_score > 25:
+                label, tier = "Medium", 1
+            else:
+                label, tier = "Low", 0
+
+            base_days = 7 if borough == "MANHATTAN" else 14
+            fix_days  = max(1, base_days + int(days_open // 10))
+
+            predictions.append(PotholePrediction(
+                unique_key        = str(p.get("unique_key", "")),
+                risk_score        = round(risk_score, 1),
+                urgency_label     = label,
+                urgency_tier      = tier,
+                fix_days_estimate = fix_days,
+                prob_low          = round(max(1 - prob, 0), 3),
+                prob_medium       = round(min(prob * 0.5, 0.5), 3),
+                prob_high         = round(min(prob * 0.4, 0.4), 3),
+                prob_critical     = round(min(prob * 0.3, 0.3), 3),
+            ))
+        return PotholePredictResponse(predictions=predictions)
+
     try:
-        model = _get_model()
-        df    = pd.DataFrame(req.potholes)
+        df = pd.DataFrame(req.potholes)
 
         if "created_date" not in df.columns:
             from datetime import datetime, timezone
