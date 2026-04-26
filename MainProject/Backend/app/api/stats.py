@@ -16,31 +16,31 @@ _BOROUGHS = ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN ISLAND"]
 def get_stats_summary():
     with get_conn() as conn:
         total_open = conn.execute(
-            "SELECT COUNT(*) FROM potholes WHERE status = 'Open'"
+            "SELECT COUNT(*) FROM potholes WHERE LOWER(status) = 'open'"
         ).fetchone()[0]
 
         total_closed = conn.execute(
-            "SELECT COUNT(*) FROM potholes WHERE status = 'Closed'"
+            "SELECT COUNT(*) FROM potholes WHERE LOWER(status) = 'closed'"
         ).fetchone()[0]
 
         avg_days = conn.execute(
-            "SELECT AVG(age_days) FROM potholes WHERE status = 'Open'"
+            "SELECT AVG(age_days) FROM potholes WHERE LOWER(status) = 'open'"
         ).fetchone()[0] or 0.0
 
         by_borough: dict[str, StatsBoroughEntry] = {}
         for borough in _BOROUGHS:
             open_c = conn.execute(
-                "SELECT COUNT(*) FROM potholes WHERE UPPER(borough)=? AND status='Open'",
+                "SELECT COUNT(*) FROM potholes WHERE UPPER(borough)=? AND LOWER(status)='open'",
                 (borough,)
             ).fetchone()[0]
 
             closed_c = conn.execute(
-                "SELECT COUNT(*) FROM potholes WHERE UPPER(borough)=? AND status='Closed'",
+                "SELECT COUNT(*) FROM potholes WHERE UPPER(borough)=? AND LOWER(status)='closed'",
                 (borough,)
             ).fetchone()[0]
 
             avg_b = conn.execute(
-                "SELECT AVG(age_days) FROM potholes WHERE UPPER(borough)=? AND status='Open'",
+                "SELECT AVG(age_days) FROM potholes WHERE UPPER(borough)=? AND LOWER(status)='open'",
                 (borough,)
             ).fetchone()[0] or 0.0
 

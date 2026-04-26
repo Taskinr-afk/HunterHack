@@ -30,7 +30,6 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["combined-stats"] });
       queryClient.invalidateQueries({ queryKey: ["potholes-geojson"] });
       queryClient.invalidateQueries({ queryKey: ["pothole-detail"] });
-      queryClient.invalidateQueries({ queryKey: ["potholes"] });
     },
   });
 

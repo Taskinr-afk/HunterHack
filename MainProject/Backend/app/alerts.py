@@ -66,16 +66,16 @@ NYC DOT Alert — PotholeIQ Risk Notification
 Pothole ID    : {pothole.get('unique_key')}
 Location      : {pothole.get('street_name')}, {pothole.get('borough')}
 Status        : {pothole.get('status', 'Open')}
-Days Open     : {int(pothole.get('age_days', 0))} days
-Risk Score    : {pothole.get('risk_score', 0):.1f} / 100
-Urgency       : {pothole.get('urgency_label', 'N/A')}
+Days Open     : {int(pothole.get('age_days') or 0)} days
+Risk Score    : {(pothole.get('risk_score') or 0):.1f} / 100
+Urgency       : {pothole.get('urgency_label') or 'N/A'}
 Est. Fix Days : {pothole.get('fix_days_estimate', 'N/A')}
 
 Traffic Data
 ------------
 Daily Volume  : {int(pothole.get('traffic_volume') or 0):,} vehicles/day
 AADT          : {int(pothole.get('aadt') or 0):,} vehicles/year
-Nearby Crashes: {pothole.get('nearby_crashes', 0)} within 200m
+Nearby Crashes: {pothole.get('nearby_crashes') or 0} within 200m
 Pavement Crash: {'Yes' if pothole.get('pavement_crash_nearby') else 'No'} within 500m
 
 {('Note: ' + custom_message) if custom_message else ''}

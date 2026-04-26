@@ -61,6 +61,13 @@ def seed(n: int = 500) -> None:
             label      = URGENCY[tier]
             fix_days   = [30, 14, 7, 3][tier]
             crashes    = random.randint(0, 20)
+            prob_map = {
+                0: (0.7, 0.2, 0.08, 0.02),
+                1: (0.4, 0.35, 0.2, 0.05),
+                2: (0.15, 0.3, 0.35, 0.2),
+                3: (0.05, 0.15, 0.3, 0.5),
+            }
+            prob_low, prob_medium, prob_high, prob_critical = prob_map[tier]
 
             rows.append((
                 f"DEMO-{i:05d}", str(created), closed, status,
@@ -70,7 +77,7 @@ def seed(n: int = 500) -> None:
                 float(TRAFFIC[borough] * 365),
                 crashes, 1 if crashes > 5 else 0,
                 risk, tier, label, fix_days,
-                0.3, 0.4, 0.2, 0.1,
+                prob_low, prob_medium, prob_high, prob_critical,
             ))
 
         conn.executemany("""

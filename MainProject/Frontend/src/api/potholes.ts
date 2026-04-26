@@ -54,6 +54,9 @@ function mapGeoJSONProperties(
 
   const probHigh = typeof props.prob_high === "number" ? props.prob_high : 0;
   const probCritical = typeof props.prob_critical === "number" ? props.prob_critical : 0;
+  const accidentProbability = typeof props.accident_probability === "number"
+    ? props.accident_probability
+    : Math.round((probHigh + probCritical) * 1000) / 1000;
 
   return {
     unique_key: String(props.unique_key ?? ""),
@@ -75,14 +78,12 @@ function mapGeoJSONProperties(
     accident_risk_probability: typeof props.accident_risk_probability === "number"
       ? props.accident_risk_probability
       : Math.round((probHigh + probCritical) * 1000) / 1000,
-    accident_probability: typeof props.accident_probability === "number"
-      ? props.accident_probability
-      : Math.round((probHigh + probCritical) * 1000) / 1000,
+    accident_probability,
     predicted_repair_days: typeof props.fix_days_estimate === "number" ? props.fix_days_estimate : null,
     prob_low: typeof props.prob_low === "number" ? props.prob_low : null,
     prob_medium: typeof props.prob_medium === "number" ? props.prob_medium : null,
-    prob_high: probHigh || null,
-    prob_critical: probCritical || null,
+    prob_high: typeof props.prob_high === "number" ? props.prob_high : null,
+    prob_critical: typeof props.prob_critical === "number" ? props.prob_critical : null,
     created_date: props.created_date as string | null ?? null,
     closed_date: props.closed_date as string | null ?? null,
   };

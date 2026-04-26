@@ -13,7 +13,6 @@ export default function AppShell() {
       queryClient.invalidateQueries({ queryKey: ["potholes-geojson"] });
       queryClient.invalidateQueries({ queryKey: ["pothole-detail"] });
       queryClient.invalidateQueries({ queryKey: ["combined-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["potholes"] });
       const rows = data?.rows_upserted ?? "unknown";
       setToast({ message: `Data refreshed — ${rows} rows upserted`, type: "success" });
       setTimeout(() => setToast(null), 5000);
