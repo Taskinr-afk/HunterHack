@@ -76,6 +76,7 @@ def get_pothole_detail(pothole_id: str):
         **base,
         accident_risk             = predictions["accident_risk"],
         accident_risk_probability = predictions.get("accident_risk_probability"),
+        accident_probability      = predictions.get("accident_probability"),
         predicted_repair_days     = predictions.get("predicted_repair_days"),
         repair_eta                = _repair_eta(pothole),
         fix_days_estimate         = pothole.get("fix_days_estimate"),

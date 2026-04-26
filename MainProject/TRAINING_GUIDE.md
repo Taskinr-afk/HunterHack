@@ -1,219 +1,246 @@
 # ML Training Guide — PotholeIQ
 
+**Last updated:** 2026-04-26  
+**Trains 3 XGBoost models:** risk regressor, urgency classifier, and accident probability classifier
+
+---
+
 ## Quick Start
 
 ```bash
 cd MainProject/Backend
-source .venv/bin/activate   # or your virtualenv
-PYTHONPATH=.. python -m Backend.cortex.train
+source .venv/bin/activate
+PYTHONPATH=. python -m Backend.cortex.train
 ```
 
-This runs the full XGBoost training pipeline: fetches data from 4 NYC Open Data APIs, engineers 11 features, trains both XGBoost models with GridSearchCV, and saves serialized models to `cortex/models/`.
+This runs the **deep training mode** by default — RandomizedSearchCV with 500 iterations, 5-fold CV (~2-3 hours).
 
-Default: fetches up to 10,000 pothole records, runs 3-fold CV grid search over 8 hyperparameter combinations, evaluates on a 20% hold-out set.
+---
 
 ## Training Modes
 
-| Flag | Effect | Time |
-|------|--------|------|
-| *(default)* | GridSearchCV with small param grid (8 combos × 3-fold CV) | ~2 min |
-| `--no-tune` | Skip grid search, use default XGBoost params | ~30 sec |
-| `--no-cache` | Re-fetch all data from APIs instead of cached parquet files | +10-30 sec |
-| `--limit N` | Fetch N pothole records (default 10,000, max ~500,000) | scales linearly |
+| Flag | Mode | Duration | Description |
+|------|------|----------|-------------|
+| (default) | Deep | ~2-3 hours | RandomizedSearchCV, n_iter=150, cv=5 |
+| `--quick` | Quick | ~2 min | GridSearchCV with small param grid |
+| `--no-tune` | Defaults | ~30 sec | No hyperparameter search |
+| `--no-cache` | Re-fetch | varies | Re-fetch all data from NYC APIs instead of cached parquet |
+| `--limit N` | Custom limit | varies | Fetch N pothole records (default: 50,000) |
+| `--n-iter N` | Custom iterations | varies | Override RandomizedSearchCV iterations (default: 500) |
+| `--cv N` | Custom folds | varies | Override cross-validation folds (default: 5) |
 
-Examples:
+### Examples
 
 ```bash
-# Fast iteration with cached data
-PYTHONPATH=.. python -m Backend.cortex.train --no-tune
+# Full deep training (2-3 hours)
+PYTHONPATH=. python -m Backend.cortex.train
 
-# Full refresh from NYC APIs
-PYTHONPATH=.. python -m Backend.cortex.train --no-cache
+# Quick iteration (~2 min)
+PYTHONPATH=. python -m Backend.cortex.train --quick
 
-# Small test run
-PYTHONPATH=.. python -m Backend.cortex.train --limit 2000 --no-tune
+# Deep training with more iterations (4-5 hours)
+PYTHONPATH=. python -m Backend.cortex.train --n-iter 300
+
+# Re-fetch data and train
+PYTHONPATH=. python -m Backend.cortex.train --no-cache
+
+# Fast iteration with small dataset
+PYTHONPATH=. python -m Backend.cortex.train --quick --limit 5000
 ```
 
-## Models
+---
 
-### 1. risk_model — XGBRegressor
-- **Target**: `risk_score` (0–100 continuous)
-- **Metric**: RMSE — expected < 5.0 points on hold-out set
-- **Param grid**: `max_depth` [4, 6], `learning_rate` [0.05, 0.1], `n_estimators` [200, 400], `subsample` [0.8]
+## Three Models
 
-### 2. urgency_model — XGBClassifier (4-class)
-- **Target**: `urgency_tier` (0=Low, 1=Medium, 2=High, 3=Critical)
-- **Metric**: ROC-AUC (OvR weighted) — expected > 0.90; Accuracy — expected > 0.90
-- **Param grid**: same as risk model
-- **Output probabilities**: `prob_low`, `prob_medium`, `prob_high`, `prob_critical`
+### 1. risk_model (XGBRegressor)
+- **Target:** risk_score (0-100, continuous)
+- **Features:** All 11 FEATURE_COLS
+- **Objective:** `reg:squarederror`
+- **Metric:** RMSE on 20% hold-out set
 
-### accident_probability (derived)
-- Computed from urgency model outputs: `prob_high + prob_critical`
-- Represents the probability of a traffic crash near this pothole
-- Served in API responses as `accident_probability` and `accident_risk_probability`
+### 2. urgency_model (XGBClassifier, 4-class)
+- **Target:** urgency_tier (0=Low, 1=Medium, 2=High, 3=Critical)
+- **Features:** All 11 FEATURE_COLS
+- **Objective:** `multi:softmax`, num_class=4
+- **Metrics:** ROC-AUC (OvR weighted), accuracy on 20% hold-out set
 
-Both models use `colsample_bytree=0.8`, `random_state=42`, `n_jobs=-1`.
+### 3. accident_model (XGBClassifier, binary)
+- **Target:** has_accident (1 if nearby_crashes >= 1, else 0)
+- **Features:** 9 ACCIDENT_FEATURE_COLS (excludes nearby_crashes and pavement_crash_nearby)
+- **Objective:** `binary:logistic`
+- **Metrics:** ROC-AUC, F1 score, accuracy on 20% hold-out set
+- **Output:** accident_probability (0-1, probability of a traffic crash near this pothole)
+
+---
+
+## Feature Engineering
+
+### Full features (11 columns, used by risk + urgency models)
+
+| Feature | Description |
+|---------|-------------|
+| `age_days` | Days since pothole was reported |
+| `latitude` | GPS latitude |
+| `longitude` | GPS longitude |
+| `borough_code` | Encoded borough (0-4) |
+| `traffic_volume` | Street-level daily vehicle count (ATR) |
+| `aadt` | Annual average daily traffic (NY State DOT) |
+| `is_highway` | 1 if highway/expressway/bridge/tunnel |
+| `descriptor_severity` | Severity weight from complaint descriptor (0-1) |
+| `month_opened` | Month the pothole was reported |
+| `nearby_crashes` | Collision count within 500m radius |
+| `pavement_crash_nearby` | 1 if pavement-specific crash within 1000m |
+
+### Accident model features (9 columns, excludes crash-derived features)
+
+Same as above but WITHOUT `nearby_crashes` and `pavement_crash_nearby` — because those directly encode collision data and would leak the target. The accident model predicts crash probability from intrinsic pothole features alone.
+
+---
 
 ## Data Sources
 
-### 1. 311 Pothole Reports (erm2-nwe9)
-- **URL**: `https://data.cityofnewyork.us/resource/erm2-nwe9.json`
-- **Provides**: Core pothole complaint data — location (lat/lon), status, dates (created/closed), descriptor (pothole type), borough, street name, location type
-- **Filter**: `descriptor LIKE '%othole%' OR descriptor LIKE '%ave-in%'`, last 2 years
-- **Cache**: `cortex/models/pothole_cache.parquet`
+| Dataset | NYC Open Data ID | Records | Description |
+|---------|-----------------|---------|-------------|
+| 311 Pothole Reports | `erm2-nwe9` | up to 50,000 | Pothole complaints (last 5 years) |
+| Traffic Volume | `7ym2-wayt` | up to 200,000 | Automated traffic counts per street segment |
+| Motor Vehicle Collisions | `h9gi-nx95` | up to 100,000 | Crash proximity features |
+| NY State AADT | `6amx-2pbv` | up to 100,000 | Annual avg daily traffic by road segment |
 
-### 2. Automated Traffic Volume (7ym2-wayt)
-- **URL**: `https://data.cityofnewyork.us/resource/7ym2-wayt.json`
-- **Provides**: Street-level daily vehicle counts (ATR data), joined to potholes by street name
-- **Used for**: `traffic_volume` feature — higher traffic = higher risk
-- **Cache**: `cortex/models/traffic_cache.parquet`
+No API token needed — all NYC Open Data endpoints are public.
 
-### 3. Motor Vehicle Collisions (h9gi-nx95)
-- **URL**: `https://data.cityofnewyork.us/resource/h9gi-nx95.json`
-- **Provides**: Crash proximity features — collision counts within 200m of each pothole, and pavement-specific crashes within 500m
-- **Used for**: `nearby_crashes` and `pavement_crash_nearby` features
-- **Cache**: `cortex/models/collision_cache.parquet`
+---
 
-### 4. NY State AADT (6amx-2pbv)
-- **URL**: `https://data.ny.gov/resource/6amx-2pbv.json`
-- **Provides**: Annual average daily traffic by road segment (secondary traffic source)
-- **Used for**: `aadt` feature — fallback when street-level traffic data is missing
-- **Cache**: `cortex/models/aadt_cache.parquet`
+## Deep Training Param Grid
 
-After joining all sources, the fully enriched dataset is cached as `cortex/models/enriched_cache.parquet`.
+The `--deep` mode uses RandomizedSearchCV over this parameter space:
 
-## Feature Engineering (11 features)
+```python
+_DEEP_GRID = {
+    "max_depth":         [3, 4, 5, 6, 7, 8, 9],           # 7 options
+    "learning_rate":     [0.01, 0.02, 0.03, 0.05, 0.08, 0.1, 0.15, 0.2],  # 8 options
+    "n_estimators":      [200, 300, 400, 600, 800, 1000, 1200],  # 7 options
+    "subsample":         [0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],  # 8 options
+    "colsample_bytree":  [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],   # 6 options
+    "min_child_weight":  [1, 3, 5, 7, 10],                   # 5 options
+    "gamma":             [0, 0.01, 0.05, 0.1, 0.2, 0.3],     # 6 options
+    "reg_alpha":         [0, 0.001, 0.01, 0.05, 0.1, 0.5],  # 6 options
+    "reg_lambda":        [0.5, 1.0, 1.5, 2.0],               # 4 options
+}
+```
 
-The `FEATURE_COLS` list in `cortex/features.py` defines the input to both XGBoost models:
+With n_iter=500 and cv=5: 500 random combinations × 5 folds × 3 models = **7,500 model fits**
 
-| # | Feature | Type | Description | Source |
-|---|---------|------|-------------|--------|
-| 1 | `age_days` | float | Days since the pothole was reported | 311 created_date |
-| 2 | `latitude` | float | Pothole latitude | 311 location |
-| 3 | `longitude` | float | Pothole longitude | 311 location |
-| 4 | `borough_code` | int | Numeric borough encoding (Manhattan=5, Brooklyn=4, Queens=3, Bronx=2, Staten Island=1) | 311 borough |
-| 5 | `traffic_volume` | float | Street-level daily vehicle count (ATR) | Traffic volume |
-| 6 | `aadt` | float | Annual average daily traffic | NY State AADT |
-| 7 | `is_highway` | int | 1 if location_type contains highway/expressway/bridge/tunnel | 311 location_type |
-| 8 | `descriptor_severity` | float | Severity weight (highway pothole=1.0, cave-in=0.95, street pothole=0.55-0.70) | 311 descriptor |
-| 9 | `month_opened` | int | Month the pothole was reported (seasonality signal) | 311 created_date |
-| 10 | `nearby_crashes` | int | Collision count within 200m radius | Collisions (h9gi-nx95) |
-| 11 | `pavement_crash_nearby` | int | 1 if pavement-specific crash within 500m | Collisions (h9gi-nx95) |
-
-**Important**: Feature order must match exactly what the saved models were trained on. Never reorder or add features without retraining.
-
-### Derived labels (not input features)
-
-Risk scores and urgency tiers are computed from features via `compute_risk_labels()`:
-
-- **risk_score** (0–100): Weighted formula — age (40pts max) + traffic_ATR (15pts) + AADT (10pts) + descriptor_severity (15pts) + highway_bonus (8pts) + nearby_crashes (12pts) + noise (~2.5pts)
-- **urgency_tier** (0–3): Binned from risk_score — Low [0-25), Medium [25-50), High [50-75), Critical [75-100]
-
-### NaN handling
-
-XGBoost handles NaN natively. When a street name doesn't match the traffic dataset, `traffic_volume` is left as NaN rather than zero-imputed, letting XGBoost learn the "missing" signal.
+---
 
 ## Output Files
 
-All saved to `MainProject/Backend/cortex/models/`:
-
 | File | Description |
 |------|-------------|
-| `risk_model.joblib` | XGBRegressor — risk score predictor |
-| `urgency_model.joblib` | XGBClassifier — urgency tier classifier |
-| `pothole_cache.parquet` | Cached 311 pothole data |
-| `traffic_cache.parquet` | Cached ATR traffic data |
-| `collision_cache.parquet` | Cached collision data |
-| `aadt_cache.parquet` | Cached AADT data |
-| `enriched_cache.parquet` | Full joined dataset (all sources merged) |
+| `cortex/models/risk_model.joblib` | Risk score regressor |
+| `cortex/models/urgency_model.joblib` | Urgency tier classifier (4-class) |
+| `cortex/models/accident_model.joblib` | Accident probability classifier (binary) |
+| `cortex/models/pothole_cache.parquet` | Cached 311 pothole data |
+| `cortex/models/traffic_cache.parquet` | Cached traffic volume data |
+| `cortex/models/collision_cache.parquet` | Cached collision data |
+| `cortex/models/aadt_cache.parquet` | Cached AADT data |
+| `cortex/models/enriched_cache.parquet` | Full enriched dataset |
 
-To clear all caches: `rm MainProject/Backend/cortex/models/*.parquet`
+---
 
 ## Monitoring Training
 
 Watch stdout for progress messages:
-
 ```
-=======================================================
-  PotholeIQ — ML Training Pipeline
-=======================================================
-
-[1/3] Fetching enriched NYC dataset (limit=10000) …
-      3,936 records in 12.4s
-      traffic_volume : 78.3% filled
-      aadt           : 45.2% filled
-      nearby_crashes : mean=4.7
-      pavement flag  : 12.1% of potholes
-
-[2/3] Training XGBoost models (tune=True) …
-  [model] GridSearchCV — risk model …
-       best params: {'max_depth': 6, 'learning_rate': 0.1, ...}
-  [model] GridSearchCV — urgency model …
-       best params: {'max_depth': 6, 'learning_rate': 0.1, ...}
-
-  ── Eval (20% hold-out, n=788) ──
-  risk_score   RMSE    : 2.770 pts
-  urgency_tier ROC-AUC : 0.9590  (OvR weighted)
-  urgency_tier Accuracy: 0.9200
-
-  ── Feature Importances ──
-  risk_model:
-    age_days                    0.3421
-    descriptor_severity         0.1876
-    ...
-  urgency_model:
-    age_days                    0.2890
-    ...
-
-[3/3] Saving models (joblib) …
-  Models saved → cortex/models/
-
-✓ Pipeline complete — models ready at cortex/models/
+[model] RandomizedSearchCV (deep, n_iter=150, cv=5) — risk model …
+       best params: {...}
+       best RMSE:   2.XXX
+[model] RandomizedSearchCV (deep, n_iter=150, cv=5) — urgency model …
+       best params: {...}
+       best accuracy: 0.XXXX
+[model] RandomizedSearchCV (deep, n_iter=150, cv=5) — accident model …
+       best params: {...}
+       best ROC-AUC: 0.XXXX
 ```
 
-- Each GridSearchCV combination is tested with 3-fold cross-validation
-- Final evaluation is on a 20% hold-out set (stratified split)
-- Expected metrics: RMSE < 5.0 for risk, ROC-AUC > 0.90 for urgency
-- Feature importances are printed for both models after training
+Feature importances are printed after all models are trained.
+
+---
 
 ## Verify Trained Models
 
+After training, restart the backend and test:
+
 ```bash
-curl http://localhost:8000/predict -X POST \
-  -H "Content-Type: application/json" \
-  -d '{"potholes": [{"unique_key": "test-001", "age_days": 30, "borough": "MANHATTAN", "risk_score": 55, "nearby_crashes": 5, "traffic_volume": 8000, "aadt": 50000, "is_highway": 0, "descriptor": "Pothole", "location_type": "", "latitude": 40.75, "longitude": -73.99, "created_date": "2026-01-01", "month_opened": 1, "pavement_crash_nearby": 0, "borough_code": 0, "descriptor_severity": 0.7, "status": "Open"}]}'
+# Restart backend
+cd MainProject/Backend
+source .venv/bin/activate
+PYTHONPATH=.. uvicorn Backend.app.main:app --reload --port 8000
 ```
 
-Response should include `accident_probability` field alongside `risk_score`, `urgency_label`, `prob_low`, etc.
+```bash
+# Test /predict endpoint
+curl http://localhost:8000/predict -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"potholes": [{"unique_key": "test", "age_days": 30, "borough": "MANHATTAN", "risk_score": 55, "nearby_crashes": 5, "traffic_volume": 8000, "aadt": 50000, "is_highway": 0, "descriptor": "Pothole", "location_type": "", "latitude": 40.75, "longitude": -73.99, "created_date": "2026-01-01", "month_opened": 1, "pavement_crash_nearby": 0, "borough_code": 0, "descriptor_severity": 0.7, "status": "Open"}]}'
+```
+
+Response should include `accident_probability` field (0-1):
+```json
+{
+  "predictions": [{
+    "risk_score": 55.2,
+    "urgency_label": "Medium",
+    "urgency_tier": 1,
+    "fix_days_estimate": 14,
+    "prob_low": 0.25,
+    "prob_medium": 0.45,
+    "prob_high": 0.20,
+    "prob_critical": 0.10,
+    "accident_probability": 0.35
+  }]
+}
+```
+
+---
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| Training fails on data fetch | Check internet connection. Use `--no-cache` to force re-fetch from APIs |
+| Data fetch fails | Check internet connection, or use `--no-cache` to re-fetch |
 | XGBoost import fails | `pip install xgboost scikit-learn` |
-| `models/` directory missing | Auto-created on first run — no action needed |
-| NYC API rate limits (429 errors) | Wait a few minutes, re-run. APIs are rate-limited without an app token |
-| NYC API timeouts | Use `--limit 2000` for a smaller dataset, or retry |
-| Stale cached data | `rm MainProject/Backend/cortex/models/*.parquet` to clear all caches |
-| Model file not found at startup | Backend falls back to heuristic predictions when `.joblib` files are missing |
-| Feature order mismatch | Feature order is defined in `FEATURE_COLS` (features.py). Never reorder without retraining |
-| NaN handling | XGBoost handles NaN natively — `traffic_volume` and `aadt` may be NaN when street names don't match |
+| Models dir missing | Auto-created on first run |
+| Clear cached data | `rm MainProject/Backend/cortex/models/*.parquet` |
+| After training | Restart backend to load new models |
+| Training too slow | Use `--quick` for fast iteration, `--deep` for production |
+| Training too fast | Increase `--n-iter 300` or `--cv 10` for more thorough search |
+| Heuristic fallback | If model files don't exist, API returns heuristic predictions |
 
-## Integration with Backend
+---
 
-1. **Auto-loading**: Models are lazy-loaded by `app/main.py` via `_get_model()`. First `/predict` call loads from disk.
+## Expected Training Metrics
 
-2. **Heuristic fallback**: When model `.joblib` files don't exist, `_get_model()` returns `"heuristic"` and the `/predict` endpoint uses rule-based predictions instead.
+| Model | Metric | Typical Range |
+|-------|--------|---------------|
+| risk_model | RMSE | 2-5 pts |
+| urgency_model | ROC-AUC | 0.85-0.97 |
+| urgency_model | Accuracy | 0.75-0.90 |
+| accident_model | ROC-AUC | 0.80-0.95 |
+| accident_model | F1 | 0.70-0.90 |
 
-3. **After training**, restart the backend to pick up new models:
-   ```bash
-   # If using --reload, just save the models — uvicorn auto-restarts
-   # Otherwise, manually restart:
-   PYTHONPATH=.. uvicorn Backend.app.main:app --reload --port 8000
-   ```
+---
 
-4. **Data refresh**: Use the admin endpoint to re-fetch data and re-score without restarting:
-   ```bash
-   curl -X POST "http://localhost:8000/admin/refresh?secret=potholeiq-dev"
-   ```
+## Architecture
+
+```
+NYC Open Data (4 sources)
+  → cortex/data.py (fetch, cache, join)
+    → cortex/features.py (build_features, compute_risk_labels, compute_accident_label)
+      → cortex/model.py (PotholeRiskModel.fit → 3 XGBoost models)
+        → cortex/models/*.joblib (saved models)
+
+API layer:
+  app/models/ml_models.py → predict_for_pothole()
+    → loads saved models or uses heuristic fallback
+    → returns {accident_risk, accident_risk_probability, accident_probability, ...}
+```

@@ -32,7 +32,7 @@ class PotholeProperties(BaseModel):
     prob_high:               Optional[float] = None
     prob_critical:          Optional[float] = None
     accident_risk_probability: Optional[float] = None
-    accident_probability:   Optional[float] = None
+    accident_probability:    Optional[float] = None
     created_date:           Optional[str]   = None
     closed_date:            Optional[str]   = None
 
@@ -100,27 +100,27 @@ class PotholeResponse(BaseModel):
 class PotholeDetailResponse(PotholeResponse):
     accident_risk:              Optional[str]   = None
     accident_risk_probability:  Optional[float] = None
-    accident_probability:       Optional[float] = None
+    accident_probability:       Optional[float] = None   # binary crash prob from accident model
     predicted_repair_days:      Optional[int]   = None
     repair_eta:                 Optional[str]   = None   # ISO date of estimated fix
     fix_days_estimate:          Optional[int]   = None
     prob_low:                   Optional[float] = None
     prob_medium:                Optional[float] = None
-    prob_high:                  Optional[float] = None
+    prob_high:                   Optional[float] = None
     prob_critical:              Optional[float] = None
 
 
 class PotholePrediction(BaseModel):
-    unique_key:            Optional[str] = None
-    risk_score:            float
-    urgency_label:         str
-    urgency_tier:          int
-    fix_days_estimate:     int
-    prob_low:              float
-    prob_medium:           float
-    prob_high:             float
-    prob_critical:         float
-    accident_probability:   float = 0.0
+    unique_key:           Optional[str] = None
+    risk_score:           float
+    urgency_label:        str
+    urgency_tier:         int
+    fix_days_estimate:    int
+    prob_low:             float
+    prob_medium:          float
+    prob_high:            float
+    prob_critical:        float
+    accident_probability: float
 
 
 class PotholePredictResponse(BaseModel):

@@ -16,8 +16,22 @@ FEATURE_COLS = [
     "is_highway",
     "descriptor_severity",
     "month_opened",
-    "nearby_crashes",        # collision count within 200 m
-    "pavement_crash_nearby", # 1 if pavement-specific crash within 500 m
+    "nearby_crashes",        # collision count within 500 m
+    "pavement_crash_nearby", # 1 if pavement-specific crash within 1000 m
+]
+
+# Accident model uses these 9 features (excludes collision-derived features
+# since they directly correlate with the accident target)
+ACCIDENT_FEATURE_COLS = [
+    "age_days",
+    "latitude",
+    "longitude",
+    "borough_code",
+    "traffic_volume",
+    "aadt",
+    "is_highway",
+    "descriptor_severity",
+    "month_opened",
 ]
 
 BOROUGH_TRAFFIC = {
@@ -111,7 +125,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
 def compute_risk_labels(df: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
     """
-    Generate risk_score (0–100) and urgency_tier (0–3) labels.
+    Generate risk_score (0-100) and urgency_tier (0-3) labels.
 
     Weights:
       age                40 pts  (180-day saturation)
@@ -141,6 +155,18 @@ def compute_risk_labels(df: pd.DataFrame, seed: int = 42) -> pd.DataFrame:
         labels=[0, 1, 2, 3],
     ).astype(int)
 
+    return df
+
+
+def compute_accident_label(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Generate binary accident_risk label for the accident probability model.
+    has_accident = 1 if nearby_crashes >= 5 (meaningful crash cluster near pothole),
+    else 0. Threshold of 5 creates a more balanced target (~40% positive)
+    while still identifying potholes in genuinely dangerous locations.
+    """
+    df = df.copy()
+    df["has_accident"] = (df["nearby_crashes"] >= 5).astype(int)
     return df
 
 

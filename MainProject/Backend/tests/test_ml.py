@@ -5,7 +5,7 @@ Run: pytest Backend/tests/ -v  (from repo root)
 
 import pytest
 from Backend.app.models.ml_models import predict_for_pothole, _get_model
-from Backend.cortex.features import FEATURE_COLS, tier_to_label, tier_to_fix_days
+from Backend.cortex.features import FEATURE_COLS, ACCIDENT_FEATURE_COLS, tier_to_label, tier_to_fix_days
 
 
 def test_predict_returns_required_fields():
@@ -31,10 +31,12 @@ def test_predict_returns_required_fields():
     })
     assert "accident_risk" in result
     assert "accident_risk_probability" in result
+    assert "accident_probability" in result
     assert "predicted_repair_days" in result
     assert "risk_score" in result
     assert result["accident_risk"] in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     assert 0.0 <= result["accident_risk_probability"] <= 1.0
+    assert 0.0 <= result["accident_probability"] <= 1.0
     assert isinstance(result["predicted_repair_days"], int)
     assert result["predicted_repair_days"] >= 1
 
@@ -57,6 +59,8 @@ def test_high_risk_higher_than_low_risk():
         "descriptor_severity": 0.7, "status": "Open",
     })
     assert high["accident_risk_probability"] >= low["accident_risk_probability"]
+    # High-risk pothole should also have higher accident probability
+    assert high["accident_probability"] >= low["accident_probability"]
 
 
 def test_heuristic_fallback():
@@ -70,6 +74,8 @@ def test_heuristic_fallback():
     })
     assert result["accident_risk"] in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
     assert result["predicted_repair_days"] >= 1
+    assert "accident_probability" in result
+    assert 0.0 <= result["accident_probability"] <= 1.0
 
     mm._model = original
 
@@ -77,7 +83,7 @@ def test_heuristic_fallback():
 def test_real_model_loads():
     model = _get_model()
     # Heuristic fallback is valid when model files aren't trained yet
-    # Re-train with: python -m Backend.cortex.train
+    # Re-train with: python -m Backend.cortex.train --deep
     assert model is not None, "Model loader should return a model or 'heuristic'"
 
 
@@ -88,6 +94,15 @@ def test_feature_cols_stable():
     assert "aadt" in FEATURE_COLS
     assert "nearby_crashes" in FEATURE_COLS
     assert "pavement_crash_nearby" in FEATURE_COLS
+
+
+def test_accident_feature_cols():
+    # Accident model uses 9 features (excludes crash-derived features)
+    assert len(ACCIDENT_FEATURE_COLS) == 9
+    assert "nearby_crashes" not in ACCIDENT_FEATURE_COLS
+    assert "pavement_crash_nearby" not in ACCIDENT_FEATURE_COLS
+    assert "age_days" in ACCIDENT_FEATURE_COLS
+    assert "traffic_volume" in ACCIDENT_FEATURE_COLS
 
 
 def test_tier_labels():

@@ -27,9 +27,10 @@ def predict_for_pothole(pothole: dict) -> dict:
     """
     Returns:
       accident_risk              LOW / MEDIUM / HIGH / CRITICAL
-      accident_risk_probability  float 0–1
+      accident_risk_probability  float 0-1  (urgency tier probability)
+      accident_probability       float 0-1  (binary crash probability from accident model)
       predicted_repair_days      int
-      risk_score                 float 0–100
+      risk_score                 float 0-100
       traffic_volume             int or None
     """
     model = _get_model()
@@ -46,11 +47,12 @@ def predict_for_pothole(pothole: dict) -> dict:
             label  = str(row.get("urgency_label", "Low"))
             proba  = float(row.get("prob_high", 0) + row.get("prob_critical", 0))
             days   = int(row.get("fix_days_estimate", 14))
+            acc_p  = float(row.get("accident_probability", 0))
 
             return {
                 "accident_risk":              label.upper(),
                 "accident_risk_probability":  round(proba, 3),
-                "accident_probability":       round(proba, 3),
+                "accident_probability":        round(acc_p, 3),
                 "predicted_repair_days":      days,
                 "risk_score":                 round(risk, 1),
                 "traffic_volume":             int(pothole.get("traffic_volume") or 0) or None,
@@ -63,12 +65,22 @@ def predict_for_pothole(pothole: dict) -> dict:
     risk_score   = float(pothole.get("risk_score") or 0)
     borough      = (pothole.get("borough") or "MANHATTAN").upper()
     crashes      = int(pothole.get("nearby_crashes") or 0)
+    traffic      = float(pothole.get("traffic_volume") or 0)
 
     # derive probability from risk score if available, else age+crashes heuristic
     if risk_score > 0:
         prob = min(risk_score / 100, 0.99)
     else:
         prob = min(days_open * 0.003 + crashes * 0.02, 0.95)
+
+    # accident probability heuristic: age + crashes + traffic → crash probability
+    acc_prob = min(
+        0.1 * (days_open / 180) +
+        0.3 * min(crashes / 10, 1.0) +
+        0.3 * min(traffic / 15000, 1.0) +
+        0.05 * (1 if borough == "MANHATTAN" else 0),
+        0.95
+    )
 
     if prob > 0.75 or risk_score > 75:
         label = "CRITICAL"
@@ -85,7 +97,7 @@ def predict_for_pothole(pothole: dict) -> dict:
     return {
         "accident_risk":             label,
         "accident_risk_probability": round(prob, 3),
-        "accident_probability":      round(prob, 3),
+        "accident_probability":      round(acc_prob, 3),
         "predicted_repair_days":     repair,
         "risk_score":                round(risk_score, 1),
         "traffic_volume":            int(pothole.get("traffic_volume") or 0) or None,
