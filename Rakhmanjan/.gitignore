@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.production
+**/Front-end/.env
+**/Front-end/.env.local
 
 # API keys
 *api_key*
