@@ -36,9 +36,21 @@ function normalizeStatus(status: string | null | undefined): "open" | "closed" {
  * Backend GeoJSON uses canonical schema: age_days, nearby_crashes, etc.
  * We compute accident_risk_probability from prob_high + prob_critical.
  */
-function mapGeoJSONProperties(props: Record<string, unknown>): Pothole {
-  const lat = typeof props.latitude === "number" ? props.latitude : 0;
-  const lng = typeof props.longitude === "number" ? props.longitude : 0;
+function mapGeoJSONProperties(
+  props: Record<string, unknown>,
+  coordinates?: [number, number],
+): Pothole {
+  // GeoJSON coordinates are [longitude, latitude]; fall back to properties if missing
+  const lat = coordinates
+    ? coordinates[1]
+    : typeof props.latitude === "number"
+      ? props.latitude
+      : 0;
+  const lng = coordinates
+    ? coordinates[0]
+    : typeof props.longitude === "number"
+      ? props.longitude
+      : 0;
 
   const probHigh = typeof props.prob_high === "number" ? props.prob_high : 0;
   const probCritical = typeof props.prob_critical === "number" ? props.prob_critical : 0;
@@ -78,7 +90,12 @@ export async function getPotholesGeoJSON(
     `/potholes/geojson${buildQuery(params)}`,
   );
 
-  return (raw.features ?? []).map((f) => mapGeoJSONProperties(f.properties as unknown as Record<string, unknown>));
+  return (raw.features ?? []).map((f) =>
+    mapGeoJSONProperties(
+      f.properties as unknown as Record<string, unknown>,
+      f.geometry?.coordinates,
+    ),
+  );
 }
 
 export async function getPotholeById(uniqueKey: string): Promise<PotholeDetail> {

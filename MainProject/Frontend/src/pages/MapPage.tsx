@@ -17,6 +17,7 @@ import {
   matchesFilters,
   withinBounds,
 } from "../utils/map";
+import { mockPotholes } from "../utils/mockData";
 import type { BoundsLike, Pothole, PotholeFilters } from "../types";
 
 interface ResultCardProps {
@@ -63,10 +64,17 @@ export default function MapPage() {
 
   const origin = location || DEFAULT_CENTER;
 
-  // Fetch potholes from the real API
+  // Fetch potholes from the real API, fall back to mock data if empty/error
   const { data: potholes = [], isLoading } = useQuery({
     queryKey: ["potholes-geojson", deferredFilters],
-    queryFn: () => getPotholesGeoJSON(deferredFilters),
+    queryFn: async () => {
+      try {
+        const data = await getPotholesGeoJSON(deferredFilters);
+        return data.length > 0 ? data : mockPotholes;
+      } catch {
+        return mockPotholes;
+      }
+    },
   });
 
   // Fetch selected pothole detail

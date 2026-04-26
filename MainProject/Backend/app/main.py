@@ -58,6 +58,12 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Auto-seed if the potholes table is empty
+    with get_conn() as conn:
+        count = conn.execute("SELECT COUNT(*) FROM potholes").fetchone()[0]
+    if count == 0:
+        from . import seed
+        seed.seed_demo_data()
     yield
 
 

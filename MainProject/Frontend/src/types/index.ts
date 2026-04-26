@@ -62,14 +62,14 @@ export interface PotholeFilters {
 export interface BoroughStats {
   open_count: number;
   closed_count: number;
-  avg_age_days: number;
+  avg_days_open: number;
   total_collisions?: number;
 }
 
 export interface StatsSummary {
   total_open: number;
   total_closed: number;
-  avg_age_days: number;
+  avg_days_open: number;
   by_borough: Record<string, BoroughStats>;
 }
 

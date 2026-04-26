@@ -87,7 +87,7 @@ export function buildMockSummary(potholes: Pothole[]): StatsSummary {
     const bucket = acc[pothole.borough] || {
       open_count: 0,
       closed_count: 0,
-      avg_age_days: 0,
+      avg_days_open: 0,
       total_collisions: 0 as number,
     };
 
@@ -97,7 +97,7 @@ export function buildMockSummary(potholes: Pothole[]): StatsSummary {
       bucket.closed_count += 1;
     }
 
-    bucket.avg_age_days += pothole.age_days || 0;
+    bucket.avg_days_open += pothole.age_days || 0;
     (bucket as { total_collisions: number }).total_collisions += pothole.nearby_crashes || 0;
     acc[pothole.borough] = bucket;
     return acc;
@@ -105,19 +105,19 @@ export function buildMockSummary(potholes: Pothole[]): StatsSummary {
 
   Object.values(by_borough).forEach((bucket) => {
     const total = bucket.open_count + bucket.closed_count;
-    bucket.avg_age_days = total ? Number((bucket.avg_age_days / total).toFixed(1)) : 0;
+    bucket.avg_days_open = total ? Number((bucket.avg_days_open / total).toFixed(1)) : 0;
   });
 
   const total_open = potholes.filter((item) => item.status === "open").length;
   const total_closed = potholes.length - total_open;
-  const avg_age_days = Number(
+  const avg_days_open = Number(
     (potholes.reduce((sum, item) => sum + (item.age_days || 0), 0) / potholes.length).toFixed(1),
   );
 
   return {
     total_open,
     total_closed,
-    avg_age_days,
+    avg_days_open,
     by_borough,
   };
 }
