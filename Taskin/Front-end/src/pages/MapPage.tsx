@@ -4,7 +4,7 @@ import MapFilters from "../components/MapFilters";
 import PotholeDetail from "../components/PotholeDetail";
 import PotholeMap from "../components/PotholeMap";
 import { useUserLocation } from "../hooks/useUserLocation";
-import { mockPotholes } from "../utils/mockData";
+import { useViewportPotholes } from "../hooks/useViewportPotholes";
 import {
   DEFAULT_CENTER,
   formatDaysOpen,
@@ -61,9 +61,20 @@ export default function MapPage() {
 
   const origin = location || DEFAULT_CENTER;
 
+  // ── Real backend data via Kevin's viewport hook ────────────────────────────
+  const { query, handleBoundsChange } = useViewportPotholes(deferredFilters);
+  const allPotholes: Pothole[] = useMemo(() => {
+    if (!query.data?.features) return [];
+    return query.data.features.map((f) => ({
+      ...f.properties,
+      latitude:  f.geometry.coordinates[1],
+      longitude: f.geometry.coordinates[0],
+    }));
+  }, [query.data]);
+
   const filtered = useMemo(
-    () => mockPotholes.filter((item) => matchesFilters(item, deferredFilters)),
-    [deferredFilters],
+    () => allPotholes.filter((item) => matchesFilters(item, deferredFilters)),
+    [allPotholes, deferredFilters],
   );
 
   const visible = useMemo(() => {
@@ -78,9 +89,9 @@ export default function MapPage() {
       .sort((left, right) => left.distance - right.distance);
   }, [bounds, filtered, origin]);
 
-  const selectedPothole = mockPotholes.find((item) => item.unique_key === selectedKey) || null;
+  const selectedPothole = allPotholes.find((item) => item.unique_key === selectedKey) || null;
 
-  const activeCount = visible.length;
+  const activeCount   = visible.length;
   const highRiskCount = filtered.filter((item) => (item.risk_score || 0) >= 80).length;
 
   return (
@@ -122,7 +133,9 @@ export default function MapPage() {
               <div className="eyebrow">Nearest potholes</div>
               <h3 className="results-title">Live list follows your map viewport</h3>
             </div>
-            <span className="results-caption">{filtered.length} matches after filters</span>
+            <span className="results-caption">
+              {query.isLoading ? "Loading…" : `${filtered.length} matches after filters`}
+            </span>
           </div>
 
           <div className="results-list">
@@ -143,7 +156,7 @@ export default function MapPage() {
             potholes={visible.slice(0, 18).map((item) => item.pothole)}
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
-            onBoundsChange={setBounds}
+            onBoundsChange={(b) => { setBounds(b); handleBoundsChange(b); }}
             userLocation={location}
           />
         </div>

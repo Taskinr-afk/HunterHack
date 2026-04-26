@@ -8,16 +8,15 @@ Kevin owns `src/api/` only — all UI/component files belong to Taskin.
 ## Current Step
 
 - **Phase 9: Live Frontend Hookup**
-- Step 9.1: Confirm Taskin wires real API calls — replace `mockPotholes` and
-  `buildMockStatsResponse()` in `MapPage.tsx` and `Dashboard.tsx` with the
-  query hooks from `src/api/potholes.ts` and `src/api/stats.ts`
+- Step 9.2: End-to-end smoke test — run both servers, verify map dots load
+  from real NYC data, clicking a dot shows live ML predictions
 
 ---
 
 ## Upcoming Steps
 
-- **Step 9.2:** End-to-end smoke test — both servers running, map dots load
-  from real NYC data, clicking a dot shows live ML predictions
+- **Step 9.3:** Alert flow — verify "Alert DOT" button in `PotholeDetail.tsx`
+  hits `POST /alerts/report` (already wired in `src/api/alerts.ts`)
 - **Step 9.3:** Alert flow — "Alert DOT" button in `PotholeDetail.tsx` hits
   `POST /alerts/report` (public endpoint, no API key needed)
 - **Step 9.4:** Viewport filter — confirm `useViewportPotholes.ts` passes
@@ -55,6 +54,16 @@ Kevin owns `src/api/` only — all UI/component files belong to Taskin.
 - [x] `src/api/stats.ts` — `getStats()`
 - [x] `src/api/alerts.ts` — `sendAlert()` → `POST /alerts/report` (no auth needed)
 - [x] `index.ts` — TypeScript types matching all backend response shapes
+
+### Phase 5 — Mock → Real Data (Step 9.1 complete)
+- [x] `MapPage.tsx` — replaced `mockPotholes` with `useViewportPotholes` real API hook;
+      GeoJSON features flattened to `Pothole[]`; `onBoundsChange` wired to both
+      local state and viewport hook so bbox filter fires on map move
+- [x] `Dashboard.tsx` — replaced `buildMockStatsResponse()` with live
+      `GET /api/stats/summary` + `GET /api/stats/timeline`; loading state added;
+      header updated from "Mock citywide" to "Live operations board"
+- [x] `kevin/Front-end/src/hooks/usePotholes.ts` — GeoJSON → flat Pothole[] converter
+- [x] `kevin/Front-end/src/hooks/useStats.ts` — summary + timeline React Query hooks
 
 ### Phase 4 — Integration Fixes
 - [x] Added `days_open` alias (frontend expected this, backend had `age_days`)

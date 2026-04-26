@@ -9,19 +9,46 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { buildMockStatsResponse, mockPotholes } from "../utils/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAPI } from "../api/client";
 import { formatDaysOpen } from "../utils/map";
-
-const stats = buildMockStatsResponse();
-const summary = stats.summary!;
-const timeline = stats.timeline!;
-
-const hotspots = [...mockPotholes]
-  .sort((left, right) => (right.risk_score || 0) - (left.risk_score || 0))
-  .slice(0, 5);
+import type { StatsSummary, TimelinePoint } from "../types";
 
 export default function Dashboard() {
+  const summaryQ = useQuery({
+    queryKey: ["stats-summary"],
+    queryFn:  () => fetchAPI<StatsSummary>("/api/stats/summary"),
+    staleTime: 60_000,
+  });
+
+  const timelineQ = useQuery({
+    queryKey: ["stats-timeline"],
+    queryFn:  () => fetchAPI<TimelinePoint[]>("/api/stats/timeline"),
+    staleTime: 60_000,
+  });
+
+  const isLoading = summaryQ.isLoading || timelineQ.isLoading;
+
+  if (isLoading) {
+    return (
+      <motion.section className="page-stack"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <div style={{ padding: "2rem", color: "#a8bfd1" }}>Loading live data…</div>
+      </motion.section>
+    );
+  }
+
+  const summary  = summaryQ.data;
+  const timeline = timelineQ.data ?? [];
+
+  if (!summary) return null;
+
   const boroughEntries = Object.entries(summary.by_borough);
+
+  const hotspots = boroughEntries
+    .map(([name, b]) => ({ name, open: b.open_count, collisions: b.total_collisions ?? 0 }))
+    .sort((a, z) => z.open - a.open)
+    .slice(0, 5);
 
   return (
     <motion.section
@@ -31,11 +58,11 @@ export default function Dashboard() {
       transition={{ duration: 0.4 }}
     >
       <section className="filter-shell dashboard-hero">
-        <div className="eyebrow">Prototype operations board</div>
-        <h2 className="filter-title">Mock citywide performance while the live backend is still cooking</h2>
+        <div className="eyebrow">Live operations board</div>
+        <h2 className="filter-title">Real-time citywide pothole data from NYC Open Data</h2>
         <p className="filter-copy">
-          This route now uses the same arbitrary pothole dataset as the map, so it stays useful for
-          demo flow, motion, layout, and merge-safe frontend work.
+          Powered by 3,936 real NYC 311 complaints enriched with traffic volume,
+          collision proximity, and XGBoost risk scores.
         </p>
       </section>
 
@@ -69,8 +96,8 @@ export default function Dashboard() {
 
           <div className="borough-list">
             {boroughEntries.map(([name, bucket]) => {
-              const total = bucket.open_count + bucket.closed_count;
-              const openPct = total ? (bucket.open_count / total) * 100 : 0;
+              const total    = bucket.open_count + bucket.closed_count;
+              const openPct  = total ? (bucket.open_count   / total) * 100 : 0;
               const closedPct = total ? (bucket.closed_count / total) * 100 : 0;
 
               return (
@@ -78,11 +105,11 @@ export default function Dashboard() {
                   <div className="borough-head">
                     <strong>{name}</strong>
                     <span>
-                      {bucket.open_count} open | {bucket.closed_count} closed | {bucket.total_collisions} collisions
+                      {bucket.open_count} open | {bucket.closed_count} closed | {bucket.total_collisions ?? 0} collisions
                     </span>
                   </div>
                   <div className="stack-bar">
-                    <div className="stack-bar-open" style={{ width: `${openPct}%` }} />
+                    <div className="stack-bar-open"   style={{ width: `${openPct}%` }} />
                     <div className="stack-bar-closed" style={{ width: `${closedPct}%` }} />
                   </div>
                 </div>
@@ -114,7 +141,7 @@ export default function Dashboard() {
                 />
                 <Legend />
                 <Bar dataKey="opened" fill="#ff6b57" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="closed" fill="#74e6c3" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="closed"  fill="#74e6c3" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -125,19 +152,17 @@ export default function Dashboard() {
         <div className="panel-head">
           <div>
             <div className="eyebrow">Top hotspots</div>
-            <h3>Highest-risk potholes in the mock city</h3>
+            <h3>Boroughs with most open potholes</h3>
           </div>
         </div>
 
         <div className="hotspot-grid">
-          {hotspots.map((pothole) => (
-            <motion.div key={pothole.unique_key} className="hotspot-card" whileHover={{ y: -4 }}>
-              <div className="hotspot-address">{pothole.address}</div>
-              <div className="hotspot-meta">
-                {pothole.borough} | {pothole.city}
-              </div>
-              <div className="hotspot-risk">Risk {pothole.risk_score?.toFixed(0)}</div>
-              <div className="hotspot-copy">{formatDaysOpen(pothole.days_open)} open</div>
+          {hotspots.map((h) => (
+            <motion.div key={h.name} className="hotspot-card" whileHover={{ y: -4 }}>
+              <div className="hotspot-address">{h.name}</div>
+              <div className="hotspot-meta">New York City</div>
+              <div className="hotspot-risk">{h.open} open</div>
+              <div className="hotspot-copy">{h.collisions} nearby collisions</div>
             </motion.div>
           ))}
         </div>
