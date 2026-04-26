@@ -16,6 +16,7 @@ export interface PotholeRecord {
   fix_days_estimate?: number | null;
   accident_risk?: string | null;
   accident_risk_probability?: number | null;
+  accident_probability?: number | null;
   predicted_repair_days?: number | null;
   prob_low?: number | null;
   prob_medium?: number | null;
@@ -46,6 +47,7 @@ export interface PotholeFeature {
   geometry: PointGeometry;
   properties: PotholeRecord & {
     pavement_crash_nearby?: number | null;
+    accident_probability?: number | null;
   };
 }
 

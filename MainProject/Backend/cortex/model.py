@@ -125,9 +125,18 @@ class PotholeRiskModel:
             yt_pred  = self.urgency_model.predict(X_val)
             yt_proba = self.urgency_model.predict_proba(X_val)
 
+            # Pad probability matrix to 4 columns if some classes were absent
+            if yt_proba.shape[1] < 4:
+                pad = np.zeros((len(yt_proba), 4))
+                classes = self.urgency_model.classes_
+                for i, c in enumerate(classes):
+                    pad[:, int(c)] = yt_proba[:, i]
+                yt_proba = pad
+
             rmse    = np.sqrt(mean_squared_error(yr_val, yr_pred))
             roc_auc = roc_auc_score(
-                yt_val, yt_proba, multi_class="ovr", average="weighted"
+                yt_val, yt_proba, multi_class="ovr", average="weighted",
+                labels=[0, 1, 2, 3],
             )
             acc = accuracy_score(yt_val, yt_pred)
 
@@ -169,6 +178,7 @@ class PotholeRiskModel:
         out["prob_medium"]       = urgency_probas[:, 1].round(3)
         out["prob_high"]         = urgency_probas[:, 2].round(3)
         out["prob_critical"]     = urgency_probas[:, 3].round(3)
+        out["accident_probability"] = (urgency_probas[:, 2] + urgency_probas[:, 3]).round(3)
         return out
 
     # ── Persistence (joblib) ──────────────────────────────────────────────────

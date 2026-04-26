@@ -75,6 +75,9 @@ function mapGeoJSONProperties(
     accident_risk_probability: typeof props.accident_risk_probability === "number"
       ? props.accident_risk_probability
       : Math.round((probHigh + probCritical) * 1000) / 1000,
+    accident_probability: typeof props.accident_probability === "number"
+      ? props.accident_probability
+      : Math.round((probHigh + probCritical) * 1000) / 1000,
     predicted_repair_days: typeof props.fix_days_estimate === "number" ? props.fix_days_estimate : null,
     prob_low: typeof props.prob_low === "number" ? props.prob_low : null,
     prob_medium: typeof props.prob_medium === "number" ? props.prob_medium : null,
@@ -123,6 +126,9 @@ export async function getPotholeById(uniqueKey: string): Promise<PotholeDetail> 
     accident_risk: (raw.accident_risk as string)?.toUpperCase() ?? null,
     accident_risk_probability: typeof raw.accident_risk_probability === "number"
       ? raw.accident_risk_probability
+      : null,
+    accident_probability: typeof raw.accident_probability === "number"
+      ? raw.accident_probability
       : null,
     predicted_repair_days: typeof raw.predicted_repair_days === "number"
       ? raw.predicted_repair_days

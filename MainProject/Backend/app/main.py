@@ -193,6 +193,11 @@ def potholes_geojson(
                         if r.get("prob_high") is not None and r.get("prob_critical") is not None
                         else None
                     ),
+                    accident_probability   = (
+                        round(float(r["prob_high"]) + float(r["prob_critical"]), 3)
+                        if r.get("prob_high") is not None and r.get("prob_critical") is not None
+                        else None
+                    ),
                     created_date          = r.get("created_date"),
                     closed_date           = r.get("closed_date"),
                 ),
@@ -252,15 +257,16 @@ def predict(req: PotholePredictRequest, request: Request):
             fix_days  = max(1, base_days + int(days_open // 10))
 
             predictions.append(PotholePrediction(
-                unique_key        = str(p.get("unique_key", "")),
-                risk_score        = round(risk_score, 1),
-                urgency_label     = label,
-                urgency_tier      = tier,
-                fix_days_estimate = fix_days,
-                prob_low          = round(max(1 - prob, 0), 3),
-                prob_medium       = round(min(prob * 0.5, 0.5), 3),
-                prob_high         = round(min(prob * 0.4, 0.4), 3),
-                prob_critical     = round(min(prob * 0.3, 0.3), 3),
+                unique_key           = str(p.get("unique_key", "")),
+                risk_score           = round(risk_score, 1),
+                urgency_label        = label,
+                urgency_tier         = tier,
+                fix_days_estimate    = fix_days,
+                prob_low             = round(max(1 - prob, 0), 3),
+                prob_medium          = round(min(prob * 0.5, 0.5), 3),
+                prob_high            = round(min(prob * 0.4, 0.4), 3),
+                prob_critical        = round(min(prob * 0.3, 0.3), 3),
+                accident_probability = round(min(prob * 0.7, 0.99), 3),
             ))
         return PotholePredictResponse(predictions=predictions)
 
@@ -302,29 +308,32 @@ def predict(req: PotholePredictRequest, request: Request):
         for i, p in enumerate(req.potholes):
             pred = predict_for_pothole(dict(p))
             predictions.append(PotholePrediction(
-                unique_key        = str(p.get("unique_key", i)),
-                risk_score        = pred.get("risk_score", 50.0),
-                urgency_label     = pred.get("accident_risk", "LOW"),
-                urgency_tier      = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}.get(pred.get("accident_risk", "LOW"), 0),
-                fix_days_estimate = pred.get("predicted_repair_days", 14),
-                prob_low          = 0.3,
-                prob_medium       = 0.4,
-                prob_high         = 0.2,
-                prob_critical    = 0.1,
+                unique_key           = str(p.get("unique_key", i)),
+                risk_score           = pred.get("risk_score", 50.0),
+                urgency_label        = pred.get("accident_risk", "LOW"),
+                urgency_tier         = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}.get(pred.get("accident_risk", "LOW"), 0),
+                fix_days_estimate    = pred.get("predicted_repair_days", 14),
+                prob_low             = 0.3,
+                prob_medium          = 0.4,
+                prob_high            = 0.2,
+                prob_critical        = 0.1,
+                accident_probability = pred.get("accident_risk_probability", 0.3),
             ))
         return PotholePredictResponse(predictions=predictions)
 
     predictions = [
         PotholePrediction(
-            unique_key        = str(row.get("unique_key", i)),
-            risk_score        = float(row["risk_score"]),
-            urgency_label     = row["urgency_label"],
-            urgency_tier      = int(row["urgency_tier"]),
-            fix_days_estimate = int(row["fix_days_estimate"]),
-            prob_low          = float(row.get("prob_low",      0)),
-            prob_medium       = float(row.get("prob_medium",   0)),
-            prob_high         = float(row.get("prob_high",     0)),
-            prob_critical     = float(row.get("prob_critical", 0)),
+            unique_key           = str(row.get("unique_key", i)),
+            risk_score           = float(row["risk_score"]),
+            urgency_label        = row["urgency_label"],
+            urgency_tier         = int(row["urgency_tier"]),
+            fix_days_estimate    = int(row["fix_days_estimate"]),
+            prob_low             = float(row.get("prob_low",      0)),
+            prob_medium          = float(row.get("prob_medium",   0)),
+            prob_high             = float(row.get("prob_high",     0)),
+            prob_critical        = float(row.get("prob_critical", 0)),
+            accident_probability = float(row.get("accident_probability",
+                                   row.get("prob_high", 0) + row.get("prob_critical", 0))),
         )
         for i, row in result.iterrows()
     ]

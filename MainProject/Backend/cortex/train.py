@@ -12,6 +12,7 @@ import argparse
 import time
 
 from .data import fetch_all
+from .features import FEATURE_COLS
 from .model import PotholeRiskModel
 
 
@@ -40,6 +41,15 @@ def main() -> None:
     model = PotholeRiskModel()
     model.fit(df, tune=not args.no_tune, verbose=True)
     print(f"\n      Finished in {time.time()-t1:.1f}s")
+
+    # ── Feature importances ─────────────────────────────────────────────────────
+    print("\n  ── Feature Importances ──")
+    for name, fitted_model in [("risk", model.risk_model), ("urgency", model.urgency_model)]:
+        importances = fitted_model.feature_importances_
+        paired = sorted(zip(FEATURE_COLS, importances), key=lambda x: -x[1])
+        print(f"\n  {name}_model:")
+        for feat, imp in paired:
+            print(f"    {feat:25s} {imp:.4f}")
 
     print("\n[3/3] Saving models (joblib) …")
     model.save()

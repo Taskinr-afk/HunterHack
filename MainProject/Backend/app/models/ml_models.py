@@ -50,6 +50,7 @@ def predict_for_pothole(pothole: dict) -> dict:
             return {
                 "accident_risk":              label.upper(),
                 "accident_risk_probability":  round(proba, 3),
+                "accident_probability":       round(proba, 3),
                 "predicted_repair_days":      days,
                 "risk_score":                 round(risk, 1),
                 "traffic_volume":             int(pothole.get("traffic_volume") or 0) or None,
@@ -84,6 +85,7 @@ def predict_for_pothole(pothole: dict) -> dict:
     return {
         "accident_risk":             label,
         "accident_risk_probability": round(prob, 3),
+        "accident_probability":      round(prob, 3),
         "predicted_repair_days":     repair,
         "risk_score":                round(risk_score, 1),
         "traffic_volume":            int(pothole.get("traffic_volume") or 0) or None,
