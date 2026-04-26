@@ -1,17 +1,37 @@
 # backend/app/database.py
 import os
+import shutil
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Optional
 
-import pandas as pd
 from dotenv import load_dotenv
+import pandas as pd
 
 load_dotenv()
 
-_DEFAULT_DB = os.path.join(os.path.dirname(__file__), "..", "cortex", "models", "potholes.db")
-DB_PATH = os.getenv("DATABASE_URL", f"sqlite:///{_DEFAULT_DB}").replace("sqlite:///", "")
+_APP_DIR = Path(__file__).resolve().parent
+_DEFAULT_DB = (_APP_DIR / ".." / "cortex" / "models" / "potholes.db").resolve()
+_TMP_DB = Path("/tmp/potholeiq/potholes.db")
+
+
+def _resolve_db_path() -> str:
+    configured = os.getenv("DATABASE_URL")
+    if configured:
+        return configured.replace("sqlite:///", "")
+
+    if os.getenv("VERCEL"):
+        _TMP_DB.parent.mkdir(parents=True, exist_ok=True)
+        if not _TMP_DB.exists() and _DEFAULT_DB.exists():
+            shutil.copyfile(_DEFAULT_DB, _TMP_DB)
+        return str(_TMP_DB)
+
+    return str(_DEFAULT_DB)
+
+
+DB_PATH = _resolve_db_path()
 
 # Columns we expose from the potholes table — never SELECT *
 POTHOLE_COLS = """unique_key, latitude, longitude, borough, street_name,
@@ -186,16 +206,16 @@ def init_db():
 
 
 def _to_sql_value(value):
+    if value is None:
+        return None
+
     if isinstance(value, str):
         cleaned = value.strip()
         if cleaned.lower() in {"nan", "none", "null", "<na>"}:
             return None
         return cleaned
 
-    if pd.isna(value):
-        return None
-
-    if isinstance(value, pd.Timestamp):
+    if isinstance(value, (date, datetime)):
         return value.isoformat()
 
     item = getattr(value, "item", None)
@@ -204,6 +224,12 @@ def _to_sql_value(value):
             return item()
         except Exception:
             pass
+
+    try:
+        if value != value:
+            return None
+    except Exception:
+        pass
 
     return value
 
