@@ -4,8 +4,8 @@ Run: pytest Backend/tests/ -v  (from repo root)
 """
 
 import pytest
-from Backend.app.models.ml_models import predict_for_pothole, _get_model
-from Backend.cortex.features import FEATURE_COLS, tier_to_label, tier_to_fix_days
+from kevin.app.models.ml_models import predict_for_pothole, _get_model
+from kevin.cortex.features import FEATURE_COLS, tier_to_label, tier_to_fix_days
 
 
 def test_predict_returns_required_fields():
@@ -60,7 +60,7 @@ def test_high_risk_higher_than_low_risk():
 
 
 def test_heuristic_fallback():
-    import Backend.app.models.ml_models as mm
+    import kevin.app.models.ml_models as mm
     original = mm._model
     mm._model = "heuristic"
 

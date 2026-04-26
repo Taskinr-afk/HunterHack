@@ -16,7 +16,7 @@ def _get_model():
     global _model
     if _model is None:
         try:
-            from Backend.cortex.model import PotholeRiskModel
+            from kevin.cortex.model import PotholeRiskModel
             _model = PotholeRiskModel.load()
         except Exception:
             _model = "heuristic"

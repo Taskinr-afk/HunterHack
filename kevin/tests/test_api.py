@@ -5,7 +5,7 @@ Run: pytest Backend/tests/ -v  (from repo root)
 
 import pytest
 from fastapi.testclient import TestClient
-from Backend.app.main import app
+from kevin.app.main import app
 
 client = TestClient(app)
 

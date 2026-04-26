@@ -11,7 +11,7 @@ import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from Backend.app.database import init_db, get_conn
+from kevin.app.database import init_db, get_conn
 
 BOROUGHS = ["MANHATTAN", "BROOKLYN", "QUEENS", "BRONX", "STATEN ISLAND"]
 DESCRIPTORS = ["Pothole", "Pothole - Highway", "Pothole - Tunnel", "Cave-In"]
@@ -83,7 +83,7 @@ def seed(n: int = 500) -> None:
         """, rows)
 
     print(f"✓ Seeded {n} demo potholes into SQLite")
-    print("  Run: PYTHONPATH=. uvicorn Backend.app.main:app --reload --port 8000")
+    print("  Run: PYTHONPATH=. uvicorn kevin.app.main:app --reload --port 8000")
 
 
 if __name__ == "__main__":

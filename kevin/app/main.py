@@ -12,7 +12,7 @@ Endpoints:
   GET  /alerts/history           alert history
 
 Run:
-  uvicorn Backend.app.main:app --reload --port 8000
+  uvicorn kevin.app.main:app --reload --port 8000
 """
 
 from __future__ import annotations
@@ -121,7 +121,7 @@ _model = None
 def _get_model():
     global _model
     if _model is None:
-        from Backend.cortex.model import PotholeRiskModel
+        from kevin.cortex.model import PotholeRiskModel
         _model = PotholeRiskModel.load()
     return _model
 
@@ -240,7 +240,7 @@ def predict(req: PotholePredictRequest, request: Request):
     except FileNotFoundError:
         raise HTTPException(
             status_code=503,
-            detail="Model not trained — run python -m Backend.cortex.train first",
+            detail="Model not trained — run python -m kevin.cortex.train first",
         )
 
     predictions = [
@@ -285,8 +285,8 @@ def admin_refresh(secret: str = Query(...)):
     if secret != os.environ.get("ADMIN_SECRET", "potholeiq-dev"):
         raise HTTPException(status_code=403, detail="Invalid secret")
 
-    from Backend.cortex.data import fetch_all
-    from Backend.cortex.model import score_potholes
+    from kevin.cortex.data import fetch_all
+    from kevin.cortex.model import score_potholes
 
     df     = fetch_all(use_cache=False)
     scored = score_potholes(df)

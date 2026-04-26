@@ -6,7 +6,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getPotholesGeoJSON } from "../api/potholes";
-import type { Pothole, PotholeFeature, PotholeFilters } from "../../../Taskin/Front-end/src/types";
+import type { Pothole, PotholeFeature, PotholeFilters } from "../../index";
 
 export function featureToPotle(f: PotholeFeature): Pothole {
   return {

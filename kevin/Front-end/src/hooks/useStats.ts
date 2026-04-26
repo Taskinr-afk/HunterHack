@@ -6,7 +6,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchAPI } from "../api/client";
-import type { StatsSummary, StatsResponse, TimelinePoint } from "../../../Taskin/Front-end/src/types";
+import type { StatsSummary, StatsResponse, TimelinePoint } from "../../index";
 
 export function useStats(): {
   data: StatsResponse | undefined;
