@@ -4,6 +4,7 @@ import {
   formatDate,
   formatAgeDays,
   formatNumber,
+  formatRepairEta,
   getRiskColor,
   getUrgencyLabel,
 } from "../utils/map";
@@ -115,15 +116,11 @@ export default function PotholeDetail({ pothole, onClose }: PotholeDetailProps) 
                   }
                 />
                 <MetricCard
-                  label="Repair ETA"
-                  value={
-                    pothole.fix_days_estimate !== null &&
-                    pothole.fix_days_estimate !== undefined
-                      ? `${pothole.fix_days_estimate} days`
-                      : pothole.predicted_repair_days
-                        ? `${pothole.predicted_repair_days} days`
-                        : "N/A"
-                  }
+                  label="Est. repair"
+                  value={formatRepairEta(
+                    pothole.fix_days_estimate ?? pothole.predicted_repair_days,
+                    pothole.created_date,
+                  )}
                 />
               </div>
 

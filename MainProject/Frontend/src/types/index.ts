@@ -30,7 +30,11 @@ export interface Pothole extends PotholeRecord {
   longitude: number;
 }
 
-export interface PotholeDetail extends PotholeRecord {}
+export interface PotholeDetail extends PotholeRecord {
+  latitude?: number | null;
+  longitude?: number | null;
+  repair_eta?: string | null;
+}
 
 export interface PointGeometry {
   type: "Point";
@@ -62,14 +66,14 @@ export interface PotholeFilters {
 export interface BoroughStats {
   open_count: number;
   closed_count: number;
-  avg_days_open: number;
+  avg_age_days: number;
   total_collisions?: number;
 }
 
 export interface StatsSummary {
   total_open: number;
   total_closed: number;
-  avg_days_open: number;
+  avg_age_days: number;
   by_borough: Record<string, BoroughStats>;
 }
 

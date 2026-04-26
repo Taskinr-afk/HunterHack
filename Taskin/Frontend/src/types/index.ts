@@ -3,24 +3,26 @@ export type PotholeStatus = "open" | "closed";
 export interface PotholeRecord {
   unique_key: string;
   borough: string;
-  city?: string;
-  zip_code?: string;
-  address?: string;
   status: PotholeStatus;
   descriptor?: string | null;
   street_name?: string | null;
-  days_open?: number | null;
+  age_days?: number | null;
   risk_score?: number | null;
-  impact_score?: number | null;
-  nearby_collision_count?: number | null;
+  urgency_label?: string | null;
+  urgency_tier?: number | null;
+  nearby_crashes?: number | null;
   traffic_volume?: number | null;
+  aadt?: number | null;
+  fix_days_estimate?: number | null;
   accident_risk?: string | null;
   accident_risk_probability?: number | null;
   predicted_repair_days?: number | null;
-  repair_eta?: string | null;
+  prob_low?: number | null;
+  prob_medium?: number | null;
+  prob_high?: number | null;
+  prob_critical?: number | null;
   created_date?: string | null;
   closed_date?: string | null;
-  urgency_tier?: number | null;
 }
 
 export interface Pothole extends PotholeRecord {
@@ -38,27 +40,21 @@ export interface PointGeometry {
 export interface PotholeFeature {
   type: "Feature";
   geometry: PointGeometry;
-  properties: PotholeRecord;
+  properties: PotholeRecord & { pavement_crash_nearby?: number | null };
 }
 
 export interface PotholeFeatureCollection {
   type: "FeatureCollection";
   features: PotholeFeature[];
+  meta?: { count?: number };
 }
 
 export interface PotholeFilters {
-  address?: string;
-  zipCode?: string;
-  city?: string;
   borough?: string;
   status?: PotholeStatus;
   min_risk?: string;
   urgency?: string;
   limit?: number;
-  lat_min?: number;
-  lat_max?: number;
-  lng_min?: number;
-  lng_max?: number;
 }
 
 export interface BoroughStats {
@@ -82,8 +78,8 @@ export interface TimelinePoint {
 }
 
 export interface StatsResponse {
-  summary?: StatsSummary;
-  timeline?: TimelinePoint[];
+  summary: StatsSummary;
+  timeline: TimelinePoint[];
 }
 
 export interface AlertResponse {
@@ -96,15 +92,11 @@ export interface AlertResponse {
 
 export interface AdminRefreshResponse {
   status?: string;
-  message?: string;
+  rows_upserted?: number;
 }
 
 export interface PredictRequest {
-  unique_key?: string;
-  borough?: string;
-  days_open?: number;
-  nearby_collision_count?: number | null;
-  traffic_volume?: number | null;
+  potholes: Record<string, unknown>[];
 }
 
 export interface BoundsLike {

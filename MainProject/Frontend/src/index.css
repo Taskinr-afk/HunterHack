@@ -532,6 +532,53 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Marker cluster icons — dark theme */
+.cluster-container {
+  background: none !important;
+  border: none !important;
+}
+
+.cluster-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: #071017;
+  box-shadow: 0 2px 12px rgba(116, 230, 195, 0.35);
+  transition: transform 0.15s;
+}
+
+.cluster-icon:hover {
+  transform: scale(1.12);
+}
+
+.cluster-icon-sm {
+  width: 36px;
+  height: 36px;
+  font-size: 0.78rem;
+  background: var(--teal);
+}
+
+.cluster-icon-md {
+  width: 44px;
+  height: 44px;
+  font-size: 0.88rem;
+  background: var(--amber);
+}
+
+.cluster-icon-lg {
+  width: 52px;
+  height: 52px;
+  font-size: 0.95rem;
+  background: var(--coral);
+}
+
+.cluster-icon span {
+  line-height: 1;
+}
+
 .legend-item {
   display: flex;
   align-items: center;
@@ -695,6 +742,24 @@ button {
   color: var(--teal);
 }
 
+.error-copy {
+  color: var(--coral);
+}
+
+.admin-panel {
+  margin-top: 0.5rem;
+}
+
+.admin-panel .button {
+  margin-top: 0.6rem;
+}
+
+.admin-panel .success-copy,
+.admin-panel .error-copy {
+  margin-top: 0.6rem;
+  font-size: 0.88rem;
+}
+
 .status-shell {
   display: flex;
   flex-direction: column;
@@ -716,6 +781,46 @@ button {
 
 .status-copy {
   color: var(--muted);
+}
+
+.data-source-banner {
+  background: rgba(255, 107, 87, 0.12);
+  border-bottom: 1px solid rgba(255, 107, 87, 0.25);
+  padding: 0.55rem 1rem;
+}
+
+.data-source-banner-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 960px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.data-source-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--coral);
+  flex-shrink: 0;
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.data-source-text {
+  font-size: 0.82rem;
+  color: var(--coral);
+  font-weight: 600;
+}
+
+.data-source-retry {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
 }
 
 .content-panel {

@@ -2,6 +2,7 @@
 from fastapi import Header, HTTPException
 import os
 
+
 async def verify_admin_key(x_api_key: str = Header(...)):
     """
     Protects sensitive endpoints.

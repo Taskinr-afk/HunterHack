@@ -69,5 +69,6 @@ def seed_demo_data(n: int = 500) -> None:
                 urgency_label, fix_days_estimate, prob_low, prob_medium, prob_high, prob_critical
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, rows)
+        conn.commit()
 
     print(f"Auto-seeded {n} demo potholes")

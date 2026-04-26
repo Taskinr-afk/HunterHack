@@ -366,7 +366,7 @@ def test_alerts_send_wrong_key():
 
 def test_alerts_send_valid_key():
     import os
-    key = os.environ.get("ADMIN_API_KEY", "change-me")
+    key = os.environ.get("ADMIN_API_KEY", "potholeiq-dev")
     r = client.post(
         "/api/alerts/send",
         json={"pothole_id": "TEST-001"},

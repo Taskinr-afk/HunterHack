@@ -58,7 +58,7 @@ def alert_history(limit: int = 50):
         AlertResponse(
             id         = r["id"],
             pothole_id = r["pothole_id"],
-            sent_date  = r.get("sent_at", ""),
+            sent_date  = r.get("sent_at") or "",
             status     = "sent" if r.get("delivered") else "logged",
             message    = r.get("message", ""),
         )

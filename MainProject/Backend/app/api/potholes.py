@@ -89,41 +89,25 @@ def get_pothole_detail(pothole_id: str):
 # ── Field mapping ──────────────────────────────────────────────────────────────
 
 def _map(r: dict) -> dict:
-    """Map DB columns → PotholeResponse fields, including frontend aliases."""
+    """Map DB columns → PotholeResponse fields (canonical schema only)."""
     age = float(r.get("age_days") or 0)
     return dict(
         unique_key              = r.get("unique_key", ""),
         latitude                = r.get("latitude", 0.0),
         longitude               = r.get("longitude", 0.0),
         borough                 = r.get("borough"),
-        city                    = "New York",           # all potholes are NYC
-        zip_code                = r.get("zip_code"),
-        address                 = _address(r),
         street_name             = r.get("street_name"),
         descriptor              = r.get("descriptor"),
         status                  = r.get("status", ""),
         created_date            = str(r["created_date"]) if r.get("created_date") else None,
         closed_date             = str(r["closed_date"])  if r.get("closed_date")  else None,
         age_days                = age,
-        days_open               = int(age),             # frontend alias
         risk_score              = r.get("risk_score"),
-        impact_score            = r.get("risk_score"),  # frontend alias
         urgency_label           = r.get("urgency_label"),
         urgency_tier            = r.get("urgency_tier"),
         nearby_crashes          = r.get("nearby_crashes", 0),
-        nearby_collision_count  = r.get("nearby_crashes", 0),  # frontend alias
         traffic_volume          = r.get("traffic_volume"),
     )
-
-
-def _address(r: dict) -> str | None:
-    street = r.get("street_name", "")
-    borough = r.get("borough", "")
-    if street and borough:
-        return f"{street}, {borough.title()}, NY"
-    if street:
-        return street
-    return None
 
 
 def _repair_eta(r: dict) -> str | None:
