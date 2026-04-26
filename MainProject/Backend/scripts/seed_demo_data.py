@@ -82,7 +82,7 @@ def seed(n: int = 500) -> None:
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, rows)
 
-    print(f"✓ Seeded {n} demo potholes into SQLite")
+    print(f"Seeded {n} demo potholes into SQLite")
     print("  Run: PYTHONPATH=. uvicorn Backend.app.main:app --reload --port 8000")
 
 
