@@ -47,7 +47,10 @@ def _send_email(subject: str, body: str) -> bool:
     msg.attach(MIMEText(body, "plain"))
     try:
         with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT) as s:
-            s.ehlo(); s.starttls(); s.login(_SMTP_USER, _SMTP_PASS)
+            s.ehlo()
+            if _SMTP_PORT != 2525:  # Mailtrap sandbox uses port 2525 without STARTTLS
+                s.starttls()
+            s.login(_SMTP_USER, _SMTP_PASS)
             s.sendmail(_FROM_EMAIL, _TO_EMAIL, msg.as_string())
         return True
     except Exception as e:

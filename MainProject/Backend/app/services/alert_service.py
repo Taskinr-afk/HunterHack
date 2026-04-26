@@ -52,7 +52,9 @@ def send_alert_email(pothole: dict, message: str) -> bool:
 
     try:
         with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
+            server.ehlo()
+            if SMTP_PORT != 2525:  # Mailtrap sandbox uses port 2525 without STARTTLS
+                server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
         return True
