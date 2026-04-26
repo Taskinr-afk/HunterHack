@@ -134,6 +134,54 @@ button {
   transform: translateY(-1px);
 }
 
+.nav-link-refresh {
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.nav-link-refresh:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text);
+}
+
+.nav-link-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toast {
+  position: fixed;
+  top: 5rem;
+  right: 1.5rem;
+  padding: 0.85rem 1.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  z-index: 9999;
+  animation: toast-in 0.25s ease-out;
+  max-width: 28rem;
+}
+
+.toast-success {
+  background: #065f46;
+  color: #d1fae5;
+  border: 1px solid #10b981;
+}
+
+.toast-error {
+  background: #7f1d1d;
+  color: #fecaca;
+  border: 1px solid #ef4444;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-0.5rem); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .app-main {
   width: min(1440px, calc(100% - 2rem));
   margin: 0 auto;

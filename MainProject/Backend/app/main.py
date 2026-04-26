@@ -290,16 +290,32 @@ def admin_refresh(secret: str = Query(...)):
     if secret != os.environ.get("ADMIN_SECRET", "potholeiq-dev"):
         raise HTTPException(status_code=403, detail="Invalid secret")
 
-    from Backend.cortex.data import fetch_all
-    from Backend.cortex.model import score_potholes
-    from .etl import validate_pothole_data
+    import requests as _requests
 
-    df     = fetch_all(use_cache=False)
-    df     = validate_pothole_data(df)
-    scored = score_potholes(df)
-    n      = upsert_potholes(scored)
+    try:
+        from Backend.cortex.data import fetch_all
+        from Backend.cortex.model import score_potholes
+        from .etl import validate_pothole_data
 
-    global _model
-    _model = None
+        df     = fetch_all(use_cache=False)
+        df     = validate_pothole_data(df)
+        scored = score_potholes(df)
+        n      = upsert_potholes(scored)
 
-    return {"status": "ok", "rows_upserted": n}
+        global _model
+        _model = None
+
+        return {"status": "ok", "rows_upserted": n}
+
+    except _requests.exceptions.Timeout:
+        raise HTTPException(status_code=504, detail="NYC Open Data API timed out — try again in a minute")
+    except _requests.exceptions.ConnectionError:
+        raise HTTPException(status_code=502, detail="Cannot reach NYC Open Data APIs — check your internet connection")
+    except _requests.exceptions.HTTPError as e:
+        raise HTTPException(status_code=502, detail=f"NYC Open Data API error: {e.response.status_code}")
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="ML model not trained — run python -m Backend.cortex.train first")
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"Data validation error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Refresh failed: {str(e)}")

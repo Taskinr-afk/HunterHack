@@ -1,6 +1,24 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { adminRefresh } from "../api/alerts";
 
 export default function AppShell() {
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const refreshMutation = useMutation({
+    mutationFn: () => adminRefresh(),
+    onSuccess: (data) => {
+      const rows = data?.rows_upserted ?? "unknown";
+      setToast({ message: `Data refreshed — ${rows} rows upserted`, type: "success" });
+      setTimeout(() => setToast(null), 5000);
+    },
+    onError: (error) => {
+      setToast({ message: `Refresh failed: ${error.message}`, type: "error" });
+      setTimeout(() => setToast(null), 8000);
+    },
+  });
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -26,8 +44,23 @@ export default function AppShell() {
           >
             Dashboard
           </NavLink>
+          <button
+            type="button"
+            className="nav-link nav-link-refresh"
+            onClick={() => refreshMutation.mutate()}
+            disabled={refreshMutation.isPending}
+            title="Re-fetch data from NYC Open Data and re-score"
+          >
+            {refreshMutation.isPending ? "Refreshing..." : "Refresh Data"}
+          </button>
         </nav>
       </header>
+
+      {toast && (
+        <div className={`toast toast-${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
 
       <main className="app-main">
         <Outlet />
