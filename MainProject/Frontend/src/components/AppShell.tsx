@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminRefresh } from "../api/alerts";
 
 export default function AppShell() {
+  const queryClient = useQueryClient();
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const refreshMutation = useMutation({
     mutationFn: () => adminRefresh(),
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["potholes-geojson"] });
+      queryClient.invalidateQueries({ queryKey: ["pothole-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["combined-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["potholes"] });
       const rows = data?.rows_upserted ?? "unknown";
       setToast({ message: `Data refreshed — ${rows} rows upserted`, type: "success" });
       setTimeout(() => setToast(null), 5000);

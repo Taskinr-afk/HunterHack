@@ -28,6 +28,8 @@ export default function Dashboard() {
     mutationFn: () => adminRefresh(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["combined-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["potholes-geojson"] });
+      queryClient.invalidateQueries({ queryKey: ["pothole-detail"] });
       queryClient.invalidateQueries({ queryKey: ["potholes"] });
     },
   });
@@ -102,7 +104,7 @@ export default function Dashboard() {
                   <div className="borough-head">
                     <strong>{name}</strong>
                     <span>
-                      {bucket.open_count} open | {bucket.closed_count} closed | {bucket.total_collisions ?? 0} collisions
+                      {bucket.open_count} open | {bucket.closed_count} closed
                     </span>
                   </div>
                   <div className="stack-bar">
