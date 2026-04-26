@@ -2,10 +2,13 @@
 NYC Open Data pipeline for PotholeIQ — Kevin's ML module.
 
 Datasets:
-  311 Service Requests   erm2-nwe9      pothole reports (last 2 years)
+  311 Service Requests   erm2-nwe9      pothole reports (last 5 years)
   Automated Traffic      7ym2-wayt      real vehicle counts per street segment
   Motor Vehicle Crashes  h9gi-nx95      collision proximity features
   NY State AADT          6amx-2pbv      annual avg daily traffic by road segment
+
+Limits can be overridden via fetch_all(pothole_limit=N, use_cache=False).
+CLI: python -m cortex.data [--limit N] [--no-cache]
 """
 
 from __future__ import annotations
@@ -35,8 +38,8 @@ AADT_CACHE      = MODEL_DIR / "aadt_cache.parquet"
 ENRICHED_CACHE  = MODEL_DIR / "enriched_cache.parquet"
 
 # ── Collision radii ────────────────────────────────────────────────────────────
-CRASH_RADIUS_M          = 200
-PAVEMENT_CRASH_RADIUS_M = 500
+CRASH_RADIUS_M          = 500
+PAVEMENT_CRASH_RADIUS_M = 1000
 PAVEMENT_FACTORS        = {"Pavement Slippery", "Pavement Defective"}
 
 # NYC county → borough name mapping for AADT data
@@ -53,38 +56,41 @@ AADT_COUNTY_TO_BOROUGH = {
 # Public API
 # ══════════════════════════════════════════════════════════════════════════════
 
-def fetch_all(pothole_limit: int = 10_000, use_cache: bool = True) -> pd.DataFrame:
+def fetch_all(pothole_limit: int = 50_000, use_cache: bool = True) -> pd.DataFrame:
     """
     Return enriched DataFrame joining all four NYC datasets.
-    Filters 311 data to last 2 years to keep training fast.
+    Filters 311 data to last 5 years for deep ML training.
     Added columns: traffic_volume, aadt, nearby_crashes, pavement_crash_nearby.
+    Set use_cache=False to force re-fetch even with cached parquet files.
     """
     if use_cache and ENRICHED_CACHE.exists():
         return pd.read_parquet(ENRICHED_CACHE)
 
-    print("  [data] Fetching 311 pothole reports (last 2 years) …")
+    print("  [data] Fetching 311 pothole reports (last 5 years) …")
     potholes = _fetch_potholes(pothole_limit)
 
     print("  [data] Fetching automated traffic volume counts …")
-    traffic = _fetch_traffic()
+    traffic = _fetch_traffic(use_cache=use_cache)
 
     print("  [data] Fetching NY State AADT by road segment …")
-    aadt = _fetch_aadt()
+    aadt = _fetch_aadt(use_cache=use_cache)
 
     print("  [data] Fetching motor vehicle collisions …")
-    collisions = _fetch_collisions()
+    collisions = _fetch_collisions(use_cache=use_cache)
 
     print("  [data] Joining datasets …")
     df = _join_traffic(potholes, traffic)
     df = _join_aadt(df, aadt)
     df = _join_collisions(df, collisions)
 
+    _print_data_quality(df)
+
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     df.to_parquet(ENRICHED_CACHE, index=False)
     return df
 
 
-def fetch_potholes(limit: int = 10_000, use_cache: bool = True) -> pd.DataFrame:
+def fetch_potholes(limit: int = 50_000, use_cache: bool = True) -> pd.DataFrame:
     if use_cache and POTHOLE_CACHE.exists():
         return pd.read_parquet(POTHOLE_CACHE)
     return _fetch_potholes(limit)
@@ -94,8 +100,8 @@ def fetch_potholes(limit: int = 10_000, use_cache: bool = True) -> pd.DataFrame:
 # Fetchers
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _fetch_potholes(limit: int = 10_000) -> pd.DataFrame:
-    two_years_ago = (datetime.now(timezone.utc) - timedelta(days=730)).strftime(
+def _fetch_potholes(limit: int = 50_000) -> pd.DataFrame:
+    five_years_ago = (datetime.now(timezone.utc) - timedelta(days=1825)).strftime(
         "%Y-%m-%dT00:00:00"
     )
     params = {
@@ -107,7 +113,7 @@ def _fetch_potholes(limit: int = 10_000) -> pd.DataFrame:
         ),
         "$where":  (
             f"upper(descriptor) LIKE '%POTHOLE%' "
-            f"AND created_date >= '{two_years_ago}'"
+            f"AND created_date >= '{five_years_ago}'"
         ),
         "$order":  "created_date DESC",
     }
@@ -118,8 +124,8 @@ def _fetch_potholes(limit: int = 10_000) -> pd.DataFrame:
     return df
 
 
-def _fetch_traffic(limit: int = 100_000) -> pd.DataFrame:
-    if TRAFFIC_CACHE.exists():
+def _fetch_traffic(limit: int = 200_000, use_cache: bool = True) -> pd.DataFrame:
+    if use_cache and TRAFFIC_CACHE.exists():
         return pd.read_parquet(TRAFFIC_CACHE)
 
     params = {
@@ -154,12 +160,12 @@ def _fetch_traffic(limit: int = 100_000) -> pd.DataFrame:
     return seg_avg
 
 
-def _fetch_aadt(limit: int = 50_000) -> pd.DataFrame:
+def _fetch_aadt(limit: int = 100_000, use_cache: bool = True) -> pd.DataFrame:
     """
     NY State Annual Average Daily Traffic (AADT) filtered to NYC counties.
     Dataset: data.ny.gov/resource/6amx-2pbv.json
     """
-    if AADT_CACHE.exists():
+    if use_cache and AADT_CACHE.exists():
         return pd.read_parquet(AADT_CACHE)
 
     nyc_counties = "('Bronx','Kings','New York','Queens','Richmond')"
@@ -189,11 +195,11 @@ def _fetch_aadt(limit: int = 50_000) -> pd.DataFrame:
     return raw
 
 
-def _fetch_collisions(limit: int = 50_000) -> pd.DataFrame:
-    if COLLISION_CACHE.exists():
+def _fetch_collisions(limit: int = 100_000, use_cache: bool = True) -> pd.DataFrame:
+    if use_cache and COLLISION_CACHE.exists():
         return pd.read_parquet(COLLISION_CACHE)
 
-    two_years_ago = (datetime.now(timezone.utc) - timedelta(days=730)).strftime(
+    five_years_ago = (datetime.now(timezone.utc) - timedelta(days=1825)).strftime(
         "%Y-%m-%dT00:00:00"
     )
     params = {
@@ -205,7 +211,7 @@ def _fetch_collisions(limit: int = 50_000) -> pd.DataFrame:
         ),
         "$where":  (
             f"latitude IS NOT NULL AND longitude IS NOT NULL "
-            f"AND crash_date >= '{two_years_ago}'"
+            f"AND crash_date >= '{five_years_ago}'"
         ),
         "$order":  "crash_date DESC",
     }
@@ -358,3 +364,37 @@ def _norm_street(name: str) -> str:
         return ""
     s = _ABBREV.sub("", name.upper().strip())
     return re.sub(r"\s+", " ", s).strip()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Data quality reporting
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _print_data_quality(df: pd.DataFrame) -> None:
+    n = len(df)
+    if n == 0:
+        print("  [data] WARNING: enriched dataset is empty")
+        return
+    traffic_pct = (df["traffic_volume"].notna().mean() * 100) if "traffic_volume" in df.columns else 0
+    aadt_pct = (df["aadt"].notna().mean() * 100) if "aadt" in df.columns else 0
+    mean_crashes = df["nearby_crashes"].mean() if "nearby_crashes" in df.columns else 0
+    pavement_pct = (df["pavement_crash_nearby"].mean() * 100) if "pavement_crash_nearby" in df.columns else 0
+    print(f"  [data] Quality report — {n:,} records")
+    print(f"           traffic_volume filled: {traffic_pct:.1f}%")
+    print(f"           aadt filled:           {aadt_pct:.1f}%")
+    print(f"           mean nearby_crashes:   {mean_crashes:.2f}")
+    print(f"           pavement_crash_nearby: {pavement_pct:.1f}%")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLI
+# ══════════════════════════════════════════════════════════════════════════════
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Fetch and enrich NYC pothole data")
+    parser.add_argument("--limit", type=int, default=50_000, help="Max 311 pothole records to fetch")
+    parser.add_argument("--no-cache", action="store_true", help="Force re-fetch, ignore cached parquet files")
+    args = parser.parse_args()
+    df = fetch_all(pothole_limit=args.limit, use_cache=not args.no_cache)
+    print(f"Done — {len(df):,} enriched records ready")
