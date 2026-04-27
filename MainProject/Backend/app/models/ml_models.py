@@ -7,8 +7,6 @@ Fallback: heuristic rules when models are not yet trained.
 
 from __future__ import annotations
 
-import numpy as np
-
 _model = None
 
 

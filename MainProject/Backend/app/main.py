@@ -18,13 +18,12 @@ Run:
 from __future__ import annotations
 
 import os
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
 from dotenv import load_dotenv
 load_dotenv()
-
-import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -63,8 +62,8 @@ async def lifespan(app: FastAPI):
     with get_conn() as conn:
         count = conn.execute("SELECT COUNT(*) FROM potholes").fetchone()[0]
     if count == 0:
-        from . import seed
-        seed.seed_demo_data()
+        from .seed_reports import seed_reports
+        seed_reports()
     yield
 
 
@@ -287,6 +286,8 @@ def predict(req: PotholePredictRequest, request: Request):
         return PotholePredictResponse(predictions=predictions)
 
     try:
+        import pandas as pd
+
         df = pd.DataFrame(req.potholes)
 
         if "created_date" not in df.columns:
@@ -375,7 +376,11 @@ def stats(request: Request):
 
 @app.post("/admin/refresh")
 def admin_refresh(secret: str = Query(...)):
-    if secret != os.environ.get("ADMIN_SECRET", "potholeiq-dev"):
+    admin_secret = os.environ.get("ADMIN_SECRET")
+    if not admin_secret:
+        raise HTTPException(status_code=503, detail="Admin refresh is not configured")
+
+    if not secrets.compare_digest(secret, admin_secret):
         raise HTTPException(status_code=403, detail="Invalid secret")
 
     import requests as _requests

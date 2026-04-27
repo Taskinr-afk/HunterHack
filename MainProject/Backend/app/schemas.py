@@ -161,7 +161,7 @@ class StatsBoroughEntry(BaseModel):
 class StatsSummary(BaseModel):
     total_open:    int
     total_closed:  int
-    avg_age_days:  float
+    avg_days_open: float
     by_borough:    dict[str, StatsBoroughEntry]
 
 
