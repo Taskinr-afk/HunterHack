@@ -98,9 +98,3 @@ cd HunterHack
 
 Setup instructions per module will be added as the project is built out.
 
----
-
-## License
-
-MIT
-# HunterHack-clean
